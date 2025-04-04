@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   Image,
   ScrollView,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Camera } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,17 +16,24 @@ import {
   Restaurant,
   featuredRestaurants as initialRestaurants,
   categories,
-} from "./data/index";
-import { styles } from "./styles/index";
+} from "@shared/data/index";
+import { indexStyles } from "./styles/index";
 import { RestaurantCard } from "./components/RestaurantCard";
 
 type SearchParams = {
+  image: string;
   action?: string;
   photoUri?: string;
   location?: string;
   latitude?: string;
   longitude?: string;
   timestamp?: string;
+  name?: string;
+  rating?: string;
+  description?: string;
+  price?: string;
+  category?: string;
+  id?: string;
 };
 
 export default function HomeScreen() {
@@ -36,45 +43,87 @@ export default function HomeScreen() {
   const [selectedTab, setSelectedTab] = useState("all");
   const [featuredRestaurants, setFeaturedRestaurants] =
     useState<Restaurant[]>(initialRestaurants);
+  const [highlightedRestaurants, setHighlightedRestaurants] = useState<
+    Set<string>
+  >(new Set());
   const [showPreview, setShowPreview] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter restaurants based on search query and selected category
   const filteredRestaurants = useMemo(() => {
-    return featuredRestaurants.filter(restaurant => {
-      const matchesSearch = restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (restaurant.location?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-                          (restaurant.description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedTab === "all" || restaurant.category === selectedTab;
+    return featuredRestaurants.filter((restaurant) => {
+      const matchesSearch =
+        restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (restaurant.location?.toLowerCase() || "").includes(
+          searchQuery.toLowerCase()
+        ) ||
+        (restaurant.description?.toLowerCase() || "").includes(
+          searchQuery.toLowerCase()
+        );
+      const matchesCategory =
+        selectedTab === "all" || restaurant.category === selectedTab;
       return matchesSearch && matchesCategory;
     });
   }, [featuredRestaurants, searchQuery, selectedTab]);
 
   useEffect(() => {
-    if (
-      searchParams.action === "addPhoto" &&
-      searchParams.photoUri &&
-      !featuredRestaurants.some(
-        (restaurant) => restaurant.image === searchParams.photoUri
-      )
-    ) {
-      try {
-        const newRestaurant: Restaurant = {
-          id: Date.now().toString(),
-          name: "New Restaurant",
-          image: searchParams.photoUri,
-          time: "Just now",
-          rating: "4.5",
-          location: searchParams.location || "Location not available",
-          latitude: searchParams.latitude || "",
-          longitude: searchParams.longitude || "",
-          category: "Restaurant",
-          description: "A new restaurant added by you",
-          price: "$$",
-        };
-        setFeaturedRestaurants((prev) => [newRestaurant, ...prev]);
-      } catch (error) {
-        console.error("Error adding new restaurant:", error);
+    switch (searchParams.action) {
+      case "addPhoto": {
+        if (
+          searchParams.photoUri &&
+          !featuredRestaurants.some(
+            (restaurant) =>
+              restaurant.name === searchParams.name &&
+              restaurant.location === searchParams.location &&
+              restaurant.coordinates?.latitude ===
+                parseFloat(searchParams.latitude || "0") &&
+              restaurant.coordinates?.longitude ===
+                parseFloat(searchParams.longitude || "0")
+          )
+        ) {
+          try {
+            const newRestaurant: Restaurant = {
+              id: Date.now().toString(),
+              name: searchParams.name || "New Restaurant",
+              image: [searchParams.photoUri],
+              time: "Just now",
+              rating: parseFloat(searchParams.rating || "4.5"),
+              location: searchParams.location || "Location not available",
+              coordinates: {
+                latitude: parseFloat(searchParams.latitude || "0"),
+                longitude: parseFloat(searchParams.longitude || "0"),
+              },
+              category: searchParams.category || "Restaurant",
+              description:
+                searchParams.description || "A new restaurant added by you",
+              price: searchParams.price || "$$",
+              isHighlighted: false,
+            };
+            setFeaturedRestaurants((prev) => [newRestaurant, ...prev]);
+          } catch (error) {
+            console.error("Error adding new restaurant:", error);
+          }
+        }
+        break;
+      }
+      case "update": {
+        if (searchParams.id) {
+          const updatedRestaurant = featuredRestaurants.find(
+            (restaurant) => restaurant.id === searchParams.id
+          );
+          
+          if (updatedRestaurant) {
+            updatedRestaurant.image = [...searchParams.image.split(",")];
+            // for (const key in searchParams) {
+            //   if (key !== "image") {
+            //     updatedRestaurant[key] = searchParams[key];
+            //   }
+            // }
+          }
+        }
+        break;
       }
     }
   }, [searchParams]);
@@ -91,6 +140,30 @@ export default function HomeScreen() {
     setShowPreview(true);
   };
 
+  const handleSearch = (query: string) => {
+    const filtered = initialRestaurants.filter((restaurant) => {
+      const searchLower = query.toLowerCase();
+      return (
+        restaurant.name.toLowerCase().includes(searchLower) ||
+        (restaurant.location?.toLowerCase() || "").includes(searchLower) ||
+        (restaurant.description?.toLowerCase() || "").includes(searchLower)
+      );
+    });
+    setFeaturedRestaurants(filtered);
+  };
+
+  const handleHighlight = (restaurantId: string) => {
+    setHighlightedRestaurants((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(restaurantId)) {
+        newSet.delete(restaurantId);
+      } else {
+        newSet.add(restaurantId);
+      }
+      return newSet;
+    });
+  };
+
   const handleRestaurantPress = (restaurant: Restaurant) => {
     router.push({
       pathname: "/photos/[id]",
@@ -98,27 +171,75 @@ export default function HomeScreen() {
         id: restaurant.id,
         image: restaurant.image,
         name: restaurant.name,
-        time: restaurant.time,
+        time: new Date().toLocaleTimeString(),
+        rating: restaurant.rating.toString(),
         location: restaurant.location,
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
+        latitude: restaurant.coordinates?.latitude?.toString(),
+        longitude: restaurant.coordinates?.longitude?.toString(),
+        category: restaurant.category,
+        price: restaurant.price,
+        description: restaurant.description,
+        phone: restaurant.contact?.phone,
+        website: restaurant.contact?.website,
+        openingHours: JSON.stringify(restaurant.operatingHours),
+        features: JSON.stringify(restaurant.features),
+        tags: JSON.stringify(restaurant.features),
       },
     });
   };
 
+  useEffect(() => {
+    // Simulate API call
+    setTimeout(() => {
+      setFeaturedRestaurants(initialRestaurants);
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView className={indexStyles.container}>
+        <View className={indexStyles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text className={indexStyles.loadingText}>
+            Loading restaurants...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView className={indexStyles.container}>
+        <View className={indexStyles.errorContainer}>
+          <Text className={indexStyles.errorText}>{error}</Text>
+          <TouchableOpacity
+            className={indexStyles.errorButton}
+            onPress={() => setError(null)}
+          >
+            <Text className={indexStyles.errorButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>Let's Enjoin Your Food</Text>
-          <View style={styles.headerButtons}>
+    <SafeAreaView className={indexStyles.container}>
+      <View className={indexStyles.header}>
+        <View className={indexStyles.headerTop}>
+          <Text className={indexStyles.headerTitle}>
+            Let's Enjoin Your Food
+          </Text>
+          <View className={indexStyles.headerButtons}>
             <TouchableOpacity
-              style={styles.headerButton}
+              className={indexStyles.headerButton}
               onPress={() => router.push("/takePhotos")}
             >
               <Ionicons name="camera-outline" size={24} color="#111827" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton}>
+            <TouchableOpacity className={indexStyles.headerButton}>
               <Ionicons
                 name="notifications-outline"
                 size={24}
@@ -127,52 +248,50 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.searchContainer}>
-          <Ionicons
-            name="search"
-            size={24}
-            color="#6B7280"
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search restaurants..."
-            placeholderTextColor="#6B7280"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            enablesReturnKeyAutomatically={true}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
-            >
-              <Ionicons name="close-circle" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          )}
-        </View>
+      </View>
+      <View className={indexStyles.searchContainer}>
+        <Ionicons
+          name="search"
+          size={20}
+          color="#6B7280"
+          className={indexStyles.searchIcon}
+        />
+        <TextInput
+          className={indexStyles.searchInput}
+          placeholder="Search restaurants..."
+          placeholderTextColor="#6B7280"
+          value={searchQuery}
+          onChangeText={(text) => {
+            setSearchQuery(text);
+            handleSearch(text);
+          }}
+          returnKeyType="search"
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          enablesReturnKeyAutomatically={true}
+        />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.categoriesContainer}>
+      <ScrollView
+        className={indexStyles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className={indexStyles.categoriesContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {categories.map((category) => (
               <TouchableOpacity
                 key={category.id}
-                style={styles.categoryItem}
+                className={indexStyles.categoryItem}
                 onPress={() => setSelectedTab(category.id)}
               >
                 <View
-                  style={[
-                    styles.categoryIcon,
-                    selectedTab === category.id && {
-                      backgroundColor: "#DBEAFE",
-                    },
-                  ]}
+                  className={[
+                    indexStyles.categoryIcon,
+                    selectedTab === category.id && "bg-blue-100",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   <Ionicons
                     name={category.icon as any}
@@ -181,10 +300,12 @@ export default function HomeScreen() {
                   />
                 </View>
                 <Text
-                  style={[
-                    styles.categoryText,
-                    selectedTab === category.id && { color: "#3B82F6" },
-                  ]}
+                  className={[
+                    indexStyles.categoryText,
+                    selectedTab === category.id && "text-blue-500",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
                   {category.name}
                 </Text>
@@ -193,40 +314,38 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
+        <View className={indexStyles.section}>
+          <Text className={indexStyles.sectionTitle}>
             {searchQuery ? "Search Results" : "Popular Restaurants"}
           </Text>
-          {filteredRestaurants.length === 0 ? (
-            <View style={styles.noResultsContainer}>
-              <Ionicons name="search" size={48} color="#6B7280" />
-              <Text style={styles.noResultsText}>No restaurants found</Text>
-            </View>
-          ) : (
-            <View style={styles.restaurantsGrid}>
-              {filteredRestaurants.map((restaurant) => (
-                <RestaurantCard
-                  key={restaurant.id}
-                  restaurant={restaurant}
-                  onPhotoPress={handlePhotoPress}
-                  variant="default"
-                />
-              ))}
-            </View>
-          )}
+          <View className={indexStyles.restaurantsGrid}>
+            {filteredRestaurants.map((restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                onPress={() => handleRestaurantPress(restaurant)}
+                onPhotoPress={() => handlePhotoPress(restaurant.image[0])}
+                onHighlight={() => handleHighlight(restaurant.id)}
+                isHighlighted={highlightedRestaurants.has(restaurant.id)}
+              />
+            ))}
+          </View>
         </View>
       </ScrollView>
 
       {showPreview && (
-        <View style={styles.photoPreview}>
-          <Image source={{ uri: previewImage }} style={styles.previewImage} />
-          <View style={styles.photoActions}>
+        <View className={indexStyles.photoPreview}>
+          <Image
+            source={{ uri: previewImage }}
+            className={indexStyles.previewImage}
+          />
+          <View className={indexStyles.photoActions}>
             <TouchableOpacity
-              style={styles.actionButton}
+              className={indexStyles.actionButton}
               onPress={() => setShowPreview(false)}
             >
-              <Ionicons name="close" size={24} color="#fff" />
-              <Text style={styles.actionText}>Close</Text>
+              <Ionicons name="close" size={24} color="#ffffff" />
+              <Text className="text-white mt-1 text-sm">Close</Text>
             </TouchableOpacity>
           </View>
         </View>
