@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, Dimensions, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Restaurant } from '@shared/data/types/restaurant';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Modal,
+  Dimensions,
+  ScrollView,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Restaurant } from "@shared/data/types/restaurant";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -11,7 +19,7 @@ interface RestaurantCardProps {
   onPhotoPress?: (image: string) => void;
   showHighlightButton?: boolean;
   onPress?: (restaurant: Restaurant) => void;
-  variant?: 'default' | 'compact' | 'detailed';
+  variant?: "default" | "compact" | "detailed";
 }
 
 export const RestaurantCard: React.FC<RestaurantCardProps> = ({
@@ -21,7 +29,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   onPhotoPress,
   showHighlightButton = true,
   onPress,
-  variant = 'default',
+  variant = "default",
 }) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -52,25 +60,13 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           category: restaurant.category,
           price: restaurant.price,
           description: restaurant.description,
-        }
+        },
       });
     }
   };
 
   const handleImagePress = () => {
     setShowImageModal(true);
-  };
-
-  const handleNextImage = () => {
-    if (currentImageIndex < restaurant.image.length - 1) {
-      setCurrentImageIndex(currentImageIndex + 1);
-    }
-  };
-
-  const handlePrevImage = () => {
-    if (currentImageIndex > 0) {
-      setCurrentImageIndex(currentImageIndex - 1);
-    }
   };
 
   const handleScroll = (event: any) => {
@@ -88,18 +84,22 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
     >
       <Image
         source={{ uri: restaurant.image[0] }}
-        className={`w-full h-48 rounded-t-xl ${variant === 'compact' ? 'w-24 h-24 rounded-lg' : ''} ${variant === 'detailed' ? 'h-60' : ''}`}
+        className={`w-full h-48 rounded-t-xl ${
+          variant === "compact" ? "w-24 h-24 rounded-lg" : ""
+        } ${variant === "detailed" ? "h-60" : ""}`}
       />
       {restaurant.image.length > 1 && (
         <View className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded-full">
-          <Text className="text-white text-xs font-semibold">+{restaurant.image.length - 1}</Text>
+          <Text className="text-white text-xs font-semibold">
+            +{restaurant.image.length - 1}
+          </Text>
         </View>
       )}
       {showHighlightButton && (
         <TouchableOpacity
           onPress={handleHighlightPress}
           className={`absolute top-2 right-2 z-10 p-2 rounded-full ${
-            localHighlighted ? 'bg-blue-500' : 'bg-white/80'
+            localHighlighted ? "bg-blue-500" : "bg-white/80"
           }`}
         >
           <Ionicons
@@ -120,7 +120,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
       onRequestClose={() => setShowImageModal(false)}
     >
       <View className="flex-1 bg-black/90 justify-center items-center">
-        <TouchableOpacity 
+        <TouchableOpacity
           className="absolute top-16 right-5 z-10"
           onPress={() => setShowImageModal(false)}
         >
@@ -135,16 +135,16 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           className="flex-1 w-full"
           contentContainerStyle={{ width: `${100 * restaurant.image.length}%` }}
           decelerationRate="fast"
-          snapToInterval={Dimensions.get('window').width}
+          snapToInterval={Dimensions.get("window").width}
           snapToAlignment="center"
         >
           {restaurant.image.map((img: string, index: number) => (
-            <View 
-              key={index} 
-              className="w-full h-full" 
-              style={{ 
-                width: Dimensions.get('window').width,
-                height: '100%'
+            <View
+              key={index}
+              className="w-full h-full"
+              style={{
+                width: Dimensions.get("window").width,
+                height: "100%",
               }}
             >
               <Image
@@ -165,9 +165,17 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   );
 
   const renderInfo = () => (
-    <View className={`p-4 ${variant === 'compact' ? 'flex-1 p-3 justify-center' : ''} ${variant === 'detailed' ? 'p-4' : ''}`}>
+    <View
+      className={`p-4 ${
+        variant === "compact" ? "flex-1 p-3 justify-center" : ""
+      } ${variant === "detailed" ? "p-4" : ""}`}
+    >
       <View className="flex-row justify-between items-center px-3 pt-2">
-        <Text className={`text-lg font-semibold text-gray-900 mb-2 ${variant === 'compact' ? 'text-base mb-1' : ''} ${variant === 'detailed' ? 'text-2xl mb-2' : ''}`}>
+        <Text
+          className={`text-lg font-semibold text-gray-900 mb-2 ${
+            variant === "compact" ? "text-base mb-1" : ""
+          } ${variant === "detailed" ? "text-2xl mb-2" : ""}`}
+        >
           {restaurant.name}
         </Text>
       </View>
@@ -179,7 +187,9 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         </View>
         <View className="flex-row items-center mr-4">
           <Ionicons name="star" size={16} color="#FBBF24" />
-          <Text className="ml-1 text-sm text-gray-500">{restaurant.rating}</Text>
+          <Text className="ml-1 text-sm text-gray-500">
+            {restaurant.rating}
+          </Text>
         </View>
         <View className="flex-row items-center mr-4">
           <Ionicons name="pricetag-outline" size={16} color="#6B7280" />
@@ -194,21 +204,26 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         </Text>
       </View>
 
-      {variant === 'detailed' && (
+      {variant === "detailed" && (
         <View className="mt-3 pt-3 border-t border-gray-200">
-          <Text className="text-sm text-gray-600 mb-2">{restaurant.description}</Text>
-          <Text className="text-base font-semibold text-green-600 mt-2">{restaurant.price}</Text>
+          <Text className="text-sm text-gray-600 mb-2">
+            {restaurant.description}
+          </Text>
+          <Text className="text-base font-semibold text-green-600 mt-2">
+            {restaurant.price}
+          </Text>
         </View>
       )}
     </View>
   );
 
   const getCardClasses = () => {
-    const baseClasses = 'w-full mb-4 bg-white rounded-xl shadow-md border border-gray-200 transition-all duration-300';
+    const baseClasses =
+      "w-full mb-4 bg-white rounded-xl border border-gray-200 transition-all duration-300";
     switch (variant) {
-      case 'compact':
+      case "compact":
         return `${baseClasses} flex-row h-24 mb-3`;
-      case 'detailed':
+      case "detailed":
         return `${baseClasses} mb-6`;
       default:
         return baseClasses;
@@ -218,7 +233,9 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   return (
     <>
       <TouchableOpacity
-        className={`${getCardClasses()} ${localHighlighted ? 'border-[3px] border-blue-500 shadow-xl' : ''}`}
+        className={`${getCardClasses()} ${
+          localHighlighted ? "border-[3px] border-blue-500" : ""
+        }`}
         onPress={handlePress}
       >
         {renderImage()}
@@ -227,4 +244,4 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
       {renderImageModal()}
     </>
   );
-}; 
+};

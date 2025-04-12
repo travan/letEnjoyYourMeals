@@ -91,7 +91,7 @@ export const photoDetails = {
   modalHeader: 'flex-row justify-between items-center mb-4',
   modalTitle: 'text-lg font-semibold text-gray-900',
   commentsList: 'flex-1 mb-4',
-  commentInputContainer: 'flex-row items-center mb-4 pt-4 border-t border-gray-200',
+  commentInputContainer: 'mb-4 pt-4 border-t border-gray-200',
   modalCommentInput: 'flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2',
   modalSendButton: 'p-2',
   modalContent: 'bg-white rounded-t-2xl p-4 h-[90%]',

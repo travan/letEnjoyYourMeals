@@ -1,69 +1,59 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import { Restaurant } from '@/data/restaurants';
-import Icon from './Icon';
+import React from "react";
+import { Restaurant } from "../../../shared/data/index";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
-  onPhotoPress?: (image: string) => void;
-  onHighlight?: (restaurantId: string) => void;
+  onPress?: () => void;
+  onPhotoPress?: () => void;
+  onHighlight?: () => void;
   isHighlighted?: boolean;
-  variant?: 'default' | 'compact';
 }
 
-export default function RestaurantCard({
+export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   restaurant,
-  onPhotoPress,
+  onPress,
   onHighlight,
   isHighlighted = false,
-  variant = 'default',
-}: RestaurantCardProps) {
+}) => {
   return (
-    <Link href={`/restaurants/${restaurant.id}`} className="block">
-      <div className={`bg-white rounded-lg overflow-hidden shadow-md ${variant === 'default' ? 'w-full' : 'w-48'}`}>
-        <div className="relative aspect-video">
-          <Image
-            src={restaurant.image}
-            alt={restaurant.name}
-            fill
-            className="object-cover"
-            onClick={(e) => {
-              e.preventDefault();
-              onPhotoPress?.(restaurant.image);
-            }}
-          />
-          <button
-            className="absolute top-2 right-2 p-2 bg-white/80 rounded-full hover:bg-white/90 transition-colors"
-            onClick={(e) => {
-              e.preventDefault();
-              onHighlight?.(restaurant.id);
-            }}
-          >
-            <Icon 
-              name={isHighlighted ? 'heart-solid' : 'heart'} 
-              className={isHighlighted ? 'text-red-500' : 'text-gray-600'}
-              size="md"
-            />
-          </button>
-        </div>
-        <div className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="font-semibold text-lg">{restaurant.name}</h3>
-            <div className="flex items-center gap-1">
-              <Icon name="star" className="text-yellow-400" size="sm" />
-              <span className="text-sm font-medium">{restaurant.rating}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-            <span>{restaurant.time}</span>
-            <span>•</span>
-            <span>{restaurant.price}</span>
-          </div>
-          {restaurant.location && (
-            <p className="text-sm text-gray-600">{restaurant.location}</p>
+    <div
+      className={`bg-white rounded-2xl overflow-hidden cursor-pointer transition shadow-md hover:shadow-lg
+        ${isHighlighted ? "ring-2 ring-blue-500 shadow-blue-100" : ""}`}
+      onClick={onPress}
+    >
+      <div className="relative">
+        <img
+          src={restaurant.image[0]}
+          alt={restaurant.name}
+          className="h-48 w-full object-cover"
+        />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onHighlight?.();
+          }}
+          className="absolute bottom-2 right-2 bg-white/80 backdrop-blur-md p-2 rounded-full"
+        >
+          {isHighlighted ? (
+            <BookmarkCheck className="h-4 w-4 text-blue-500" />
+          ) : (
+            <Bookmark className="h-4 w-4 text-gray-800" />
           )}
+        </button>
+      </div>
+      <div className="p-4 space-y-1">
+        <h3 className="text-lg font-semibold text-gray-800 truncate">
+          {restaurant.name}
+        </h3>
+        <p className="text-sm text-gray-500 truncate">
+          {restaurant.location || "Unknown location"}
+        </p>
+        <div className="flex items-center text-sm text-yellow-500">
+          <span>⭐ {restaurant.rating.toFixed(1)}</span>
+          <span className="ml-2 text-gray-400">{restaurant.category}</span>
         </div>
       </div>
-    </Link>
+    </div>
   );
-} 
+};

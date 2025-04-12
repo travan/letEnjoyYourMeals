@@ -16,9 +16,11 @@ import {
   Restaurant,
   featuredRestaurants as initialRestaurants,
   categories,
+  SampleComments,
 } from "@shared/data/index";
 import { indexStyles } from "./styles/index";
 import { RestaurantCard } from "./components/RestaurantCard";
+import { useRestaurantContext } from "./contexts/RestaurantContext";
 
 type SearchParams = {
   image: string;
@@ -41,8 +43,8 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [selectedTab, setSelectedTab] = useState("all");
-  const [featuredRestaurants, setFeaturedRestaurants] =
-    useState<Restaurant[]>(initialRestaurants);
+  const { restaurants, setRestaurants, comments, setComments } =
+    useRestaurantContext();
   const [highlightedRestaurants, setHighlightedRestaurants] = useState<
     Set<string>
   >(new Set());
@@ -53,7 +55,7 @@ export default function HomeScreen() {
 
   // Filter restaurants based on search query and selected category
   const filteredRestaurants = useMemo(() => {
-    return featuredRestaurants.filter((restaurant) => {
+    return restaurants.filter((restaurant) => {
       const matchesSearch =
         restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (restaurant.location?.toLowerCase() || "").includes(
@@ -66,14 +68,17 @@ export default function HomeScreen() {
         selectedTab === "all" || restaurant.category === selectedTab;
       return matchesSearch && matchesCategory;
     });
-  }, [featuredRestaurants, searchQuery, selectedTab]);
+  }, [restaurants, searchQuery, selectedTab]);
 
   useEffect(() => {
-    switch (searchParams.action) {
-      case "addPhoto": {
-        if (
-          searchParams.photoUri &&
-          !featuredRestaurants.some(
+    setComments(SampleComments);
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.action === "addPhoto") {
+      if (
+        searchParams.photoUri &&
+        !restaurants.some(
             (restaurant) =>
               restaurant.name === searchParams.name &&
               restaurant.location === searchParams.location &&
@@ -101,29 +106,10 @@ export default function HomeScreen() {
               price: searchParams.price || "$$",
               isHighlighted: false,
             };
-            setFeaturedRestaurants((prev) => [newRestaurant, ...prev]);
+            setRestaurants((prev) => [newRestaurant, ...prev]);
           } catch (error) {
-            console.error("Error adding new restaurant:", error);
-          }
+          console.error("Error adding new restaurant:", error);
         }
-        break;
-      }
-      case "update": {
-        if (searchParams.id) {
-          const updatedRestaurant = featuredRestaurants.find(
-            (restaurant) => restaurant.id === searchParams.id
-          );
-          
-          if (updatedRestaurant) {
-            updatedRestaurant.image = [...searchParams.image.split(",")];
-            // for (const key in searchParams) {
-            //   if (key !== "image") {
-            //     updatedRestaurant[key] = searchParams[key];
-            //   }
-            // }
-          }
-        }
-        break;
       }
     }
   }, [searchParams]);
@@ -149,7 +135,7 @@ export default function HomeScreen() {
         (restaurant.description?.toLowerCase() || "").includes(searchLower)
       );
     });
-    setFeaturedRestaurants(filtered);
+    setRestaurants(filtered);
   };
 
   const handleHighlight = (restaurantId: string) => {
@@ -169,21 +155,6 @@ export default function HomeScreen() {
       pathname: "/photos/[id]",
       params: {
         id: restaurant.id,
-        image: restaurant.image,
-        name: restaurant.name,
-        time: new Date().toLocaleTimeString(),
-        rating: restaurant.rating.toString(),
-        location: restaurant.location,
-        latitude: restaurant.coordinates?.latitude?.toString(),
-        longitude: restaurant.coordinates?.longitude?.toString(),
-        category: restaurant.category,
-        price: restaurant.price,
-        description: restaurant.description,
-        phone: restaurant.contact?.phone,
-        website: restaurant.contact?.website,
-        openingHours: JSON.stringify(restaurant.operatingHours),
-        features: JSON.stringify(restaurant.features),
-        tags: JSON.stringify(restaurant.features),
       },
     });
   };
@@ -191,7 +162,7 @@ export default function HomeScreen() {
   useEffect(() => {
     // Simulate API call
     setTimeout(() => {
-      setFeaturedRestaurants(initialRestaurants);
+      setRestaurants(initialRestaurants);
       setLoading(false);
     }, 1000);
   }, []);
