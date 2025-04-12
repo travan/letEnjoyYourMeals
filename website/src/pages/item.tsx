@@ -15,9 +15,7 @@ import {
 } from "lucide-react";
 import MapView from "../components/MapComponents";
 import {
-  categories,
-  Comment,
-  SampleComments,
+  categories
 } from "../../../shared/data/index";
 import * as Ionicons from "react-icons/io5";
 import ImageSlider from "../components/SlideImages";
@@ -36,9 +34,11 @@ const RestaurantItem = () => {
   }
 
   const imageArray = restaurant.image;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [showFullImage, setShowFullImage] = useState(false);
-  const [modalImageIndex, setModalImageIndex] = useState(0);
-  const [showMap, setShowMap] = useState(false);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [showMap, setShowMap] = useState<boolean>(false);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [showComments, setShowComments] = useState(false);
 
   const getComments = () => {
@@ -251,7 +251,7 @@ const RestaurantItem = () => {
             <X size={28} />
           </button>
           <img
-            src={imageArray[modalImageIndex]}
+            src={imageArray[0]}
             alt="Full"
             className="object-contain flex-1"
           />

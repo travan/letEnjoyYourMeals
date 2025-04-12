@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { Comment } from "../../../shared/data/index";
