@@ -1,15 +1,21 @@
-name: Deploy Vite site to GitHub Pages
+name: Deploy Website to GitHub Pages
 
 on:
   push:
     branches:
-      - main  # hoặc 'master' nếu bạn dùng branch đó
+      - main
+    paths:
+      - 'website/**'
+
+defaults:
+  run:
+    working-directory: website
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -20,11 +26,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build Vite site
         run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          publish_dir: website/dist
