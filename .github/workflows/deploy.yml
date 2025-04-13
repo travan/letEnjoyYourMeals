@@ -93,8 +93,8 @@ jobs:
           " >> android/app/build.gradle
 
       - name: Build Signed APK
+        working-directory: android
         run: |
-          cd mobile/android
           chmod +x gradlew
           ./gradlew assembleRelease
 
