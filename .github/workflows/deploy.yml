@@ -49,61 +49,39 @@ jobs:
         working-directory: mobile
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
         with:
-          distribution: "temurin"
-          java-version: "17"
+          node-version: '16'  # Specify your Node.js version
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Cache node_modules
+        uses: actions/cache@v2
         with:
-          node-version: 18
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm install
 
-      - name: Decode Keystore
-        run: |
-          mkdir -p android/app
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+      - name: Install Expo CLI
+        run: npm install -g expo-cli
 
-      - name: Setup signing config
-        run: |
-          echo "
-          android {
-            ...
-            signingConfigs {
-              release {
-                storeFile file('release.keystore')
-                storePassword '${{ secrets.ANDROID_STORE_PASSWORD }}'
-                keyAlias '${{ secrets.ANDROID_KEY_ALIAS }}'
-                keyPassword '${{ secrets.ANDROID_KEY_PASSWORD }}'
-              }
-            }
-            buildTypes {
-              release {
-                signingConfig signingConfigs.release
-              }
-            }
-          }
-          " >> android/app/build.gradle
+      - name: Login to Expo
+        run: expo login --username ${{ secrets.EXPO_USERNAME }} --password ${{ secrets.EXPO_PASSWORD }}
 
-      - name: Build Signed APK
-        run: |
-          cd android
-          ls -al
-          chmod +x gradlew
-          ./gradlew assembleRelease
-
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-          files: ./android/app/build/outputs/apk/release/app-release.apk
+      - name: Build APK for Android
+        run: expo build:android --no-wait --clear-credentials
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPO_CLI_PASSWORD: ${{ secrets.EXPO_PASSWORD }}
+          EXPO_CLI_USERNAME: ${{ secrets.EXPO_USERNAME }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: android-apk
+          path: dist/*.apk
