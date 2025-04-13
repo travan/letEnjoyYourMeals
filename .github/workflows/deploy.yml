@@ -93,8 +93,10 @@ jobs:
           " >> android/app/build.gradle
 
       - name: Build Signed APK
-        working-directory: android
-        run: ./gradlew assembleRelease
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
