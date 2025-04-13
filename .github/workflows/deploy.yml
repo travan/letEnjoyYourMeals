@@ -66,11 +66,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Init React Native
-        run: npx @react-native-community/cli init mobile
-
       - name: Decode Keystore
         run: |
+          mkdir -p android/app
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
 
       - name: Setup signing config
