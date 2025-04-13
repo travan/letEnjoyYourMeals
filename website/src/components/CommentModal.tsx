@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import EmojiPicker from "emoji-picker-react";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Comment } from "../../../shared/data/index";
 
 interface CommentModalProps {
@@ -83,7 +83,7 @@ export default function CommentModal({
     onClose();
   };
 
-  const onEmojiClick = (emojiData: any) => {
+  const onEmojiClick = (emojiData: EmojiClickData) => {
     setNewComment((prev) => prev + emojiData.emoji);
   };
 

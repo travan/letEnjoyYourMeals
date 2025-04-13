@@ -1,0 +1,114 @@
+name: Deploy Website & Build Mobile App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "mobile/**"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  build-website:
+    name: Build & Deploy Website
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build website
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website/dist
+
+  build-android:
+    name: Build & Release Android App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      - name: Setup signing config
+        run: |
+          echo "
+          android {
+            ...
+            signingConfigs {
+              release {
+                storeFile file('release.keystore')
+                storePassword '${{ secrets.ANDROID_STORE_PASSWORD }}'
+                keyAlias '${{ secrets.ANDROID_KEY_ALIAS }}'
+                keyPassword '${{ secrets.ANDROID_KEY_PASSWORD }}'
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.release
+              }
+            }
+          }
+          " >> android/app/build.gradle
+
+      - name: Build Signed APK
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: mobile/android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+                "text": "🚀 New APK Release uploaded: https://github.com/${{ github.repository }}/releases/tag/v${{ github.run_number }}"
+              }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

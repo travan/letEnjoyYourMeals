@@ -107,6 +107,7 @@ const RestaurantItem = () => {
     setShowMap(!showMap);
   };
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     getComments();
   }, []);
@@ -158,7 +159,9 @@ const RestaurantItem = () => {
 
         {showMap && (
           <MapView
+            // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
             latitude={restaurant?.coordinates?.latitude!}
+            // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
             longitude={restaurant?.coordinates?.longitude!}
           />
         )}
