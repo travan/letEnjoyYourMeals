@@ -93,9 +93,8 @@ jobs:
           " >> android/app/build.gradle
 
       - name: Build Signed APK
-        run: |
-          cd android
-          ./gradlew assembleRelease
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
@@ -105,12 +104,3 @@ jobs:
           files: mobile/android/app/build/outputs/apk/release/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v1.23.0
-        with:
-          payload: |
-            {
-                "text": "🚀 New APK Release uploaded: https://github.com/${{ github.repository }}/releases/tag/v${{ github.run_number }}"
-              }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
