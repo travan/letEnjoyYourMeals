@@ -94,7 +94,7 @@ jobs:
 
       - name: Build Signed APK
         run: |
-          cd android
+          cd mobile/android
           chmod +x gradlew
           ./gradlew assembleRelease
 
