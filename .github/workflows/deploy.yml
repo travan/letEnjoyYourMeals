@@ -87,7 +87,7 @@ jobs:
           curl -o dist/app-ios.ipa "$IOS_URL"
 
       - name: Upload Android & iOS Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2
         with:
           name: mobile-builds
           path: mobile/dist
