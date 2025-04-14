@@ -60,8 +60,10 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      - name: Login to Expo
-        run: eas login --token ${{ secrets.EXPO_TOKEN }}
+      # - name: Login to Expo
+      #   run: eas login --token ${{ secrets.EXPO_TOKEN }}
+      - name: Set Expo Token
+        run: echo "EXPO_TOKEN=${{ secrets.EXPO_TOKEN }}" >> $GITHUB_ENV
 
       - name: Trigger Android Build (APK)
         id: build_android
