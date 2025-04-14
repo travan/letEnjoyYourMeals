@@ -68,9 +68,13 @@ jobs:
       - name: Trigger Android Build (APK)
         id: build_android
         run: |
-          JSON=$(eas build --platform android --profile preview --non-interactive --json)
-          echo "$JSON" > android-build.json
-          echo "ANDROID_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
+          BUILD_ID=$(eas build --platform android --profile preview --non-interactive --json | jq -r '.id')
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
+          echo "Waiting for build to complete..."
+          BUILD_INFO=$(eas build:status --non-interactive --json --build-id $BUILD_ID)
+          echo "$BUILD_INFO" > android-build.json
+          ANDROID_URL=$(echo "$BUILD_INFO" | jq -r '.artifacts.buildUrl')
+          echo "ANDROID_URL=$ANDROID_URL" >> $GITHUB_ENV
 
       # - name: Trigger iOS Build
       #   id: build_ios
