@@ -28,21 +28,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # - name: Run tests
-      #   run: npm run test
-
       - name: Build website
         run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
-            publish_dir: ./dist
-            publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
 
-  build-android:
-    name: Build & Release Android App
+  build-mobile:
+    name: EAS Build Android & iOS
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,33 +52,42 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18  # Specify your Node.js version
-
-      - name: Cache node_modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: 18
 
       - name: Install dependencies
         run: npm install
 
-      - name: Install Expo CLI
-        run: npm install -g expo-cli
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
 
       - name: Login to Expo
-        run: expo login --username ${{ secrets.EXPO_USERNAME }} --password ${{ secrets.EXPO_PASSWORD }}
+        run: eas login --token ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build APK for Android
-        run: expo build:android --no-wait --clear-credentials
-        env:
-          EXPO_CLI_PASSWORD: ${{ secrets.EXPO_PASSWORD }}
-          EXPO_CLI_USERNAME: ${{ secrets.EXPO_USERNAME }}
+      - name: Trigger Android Build (APK)
+        id: build_android
+        run: |
+          JSON=$(eas build --platform android --profile preview --non-interactive --json)
+          echo "$JSON" > android-build.json
+          echo "ANDROID_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v2
+      - name: Trigger iOS Build
+        id: build_ios
+        run: |
+          JSON=$(eas build --platform ios --profile preview --non-interactive --json)
+          echo "$JSON" > ios-build.json
+          echo "IOS_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
+
+      - name: Download Android APK
+        run: |
+          mkdir -p dist
+          curl -o dist/app-android.apk "$ANDROID_URL"
+
+      - name: Download iOS IPA
+        run: |
+          curl -o dist/app-ios.ipa "$IOS_URL"
+
+      - name: Upload Android & iOS Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: android-apk
-          path: dist/*.apk
+          name: mobile-builds
+          path: mobile/dist
