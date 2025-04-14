@@ -72,21 +72,21 @@ jobs:
           echo "$JSON" > android-build.json
           echo "ANDROID_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
 
-      - name: Trigger iOS Build
-        id: build_ios
-        run: |
-          JSON=$(eas build --platform ios --profile preview --non-interactive --json)
-          echo "$JSON" > ios-build.json
-          echo "IOS_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
+      # - name: Trigger iOS Build
+      #   id: build_ios
+      #   run: |
+      #     JSON=$(eas build --platform ios --profile preview --non-interactive --json)
+      #     echo "$JSON" > ios-build.json
+      #     echo "IOS_URL=$(echo "$JSON" | jq -r '.artifacts.buildUrl')" >> $GITHUB_ENV
 
       - name: Download Android APK
         run: |
           mkdir -p dist
           curl -o dist/app-android.apk "$ANDROID_URL"
 
-      - name: Download iOS IPA
-        run: |
-          curl -o dist/app-ios.ipa "$IOS_URL"
+      # - name: Download iOS IPA
+      #   run: |
+      #     curl -o dist/app-ios.ipa "$IOS_URL"
 
       # - name: Upload Android & iOS Artifacts
       #   uses: actions/upload-artifact@v3
