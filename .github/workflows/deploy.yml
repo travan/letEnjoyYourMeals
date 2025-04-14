@@ -86,8 +86,8 @@ jobs:
         run: |
           curl -o dist/app-ios.ipa "$IOS_URL"
 
-      - name: Upload Android & iOS Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: mobile-builds
-          path: dist
+      # - name: Upload Android & iOS Artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: mobile-builds
+      #     path: dist
