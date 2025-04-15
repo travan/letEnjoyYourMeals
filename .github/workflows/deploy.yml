@@ -67,7 +67,7 @@ jobs:
       - name: Trigger Android Build (APK)
         id: build_android
         run: |
-          BUILD_ID=$(eas build --platform android --profile production --non-interactive --json | jq -r '.id')
+          BUILD_ID=$(eas build --platform android --profile preview --non-interactive --json | jq -r '.[0].id')
           echo "ANDROID_BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
           echo "Waiting for Android build to complete..."
           while true; do
