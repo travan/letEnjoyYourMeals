@@ -1,11 +1,14 @@
-import { initializeApp, cert } from 'firebase-admin/app';
+import { cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { ServiceAccount } from 'firebase-admin';
+import admin from 'firebase-admin';
 import serviceAccount from './serviceAccountKey.json';
 
-const app = initializeApp({
-  credential: cert(serviceAccount as ServiceAccount),
+admin.initializeApp({
+  credential: cert(serviceAccount as admin.ServiceAccount),
+  storageBucket: `${serviceAccount.project_id}.appspot.com`,
 });
 
 const db = getFirestore();
-export { db };
+const bucket = admin.storage().bucket();
+console.log(bucket.name)
+export { db, bucket };
