@@ -1,17 +1,8 @@
 import Fastify from "fastify";
-import {
-  restaurantRoutes,
-  uploadRoutes,
-  categoryRoutes,
-  commentRoutes,
-} from "./routes/index";
-
+import {apiRoutes} from "./routes";
 const app = Fastify();
 
-app.register(uploadRoutes, { prefix: "/api" });
-app.register(restaurantRoutes, { prefix: "/api" });
-app.register(categoryRoutes, { prefix: "/api" });
-app.register(commentRoutes, { prefix: "/api" });
+app.register(apiRoutes, { prefix: '/api' });
 
 app.listen({ port: 3000 }, (err, address) => {
   if (err) {
