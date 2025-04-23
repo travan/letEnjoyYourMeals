@@ -6,7 +6,10 @@ export async function categoryRoutes(fastify: FastifyInstance) {
   // GET all categories
   fastify.get("/categories", async () => {
     const snapshot = await db.collection("categories").get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Category[];
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Category[];
   });
 
   // GET one category
@@ -23,13 +26,31 @@ export async function categoryRoutes(fastify: FastifyInstance) {
 
   // CREATE new category
   fastify.post("/categories", async (request, reply) => {
-    const data = request.body as Category;
-    if (!data.id) {
-      return reply.code(400).send({ message: "Missing category ID" });
+    const data = request.body as Category[];
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return reply.code(400).send({ message: "No categories provided" });
     }
 
-    await db.collection("categories").doc(data.id).set(data);
-    return reply.code(201).send({ message: "Category created", id: data.id });
+    const batch = db.batch();
+
+    for (const category of data) {
+      if (!category.id) {
+        return reply
+          .code(400)
+          .send({ message: "Missing category ID for one item" });
+      }
+
+      const docRef = db.collection("categories").doc(category.id);
+      batch.set(docRef, category);
+    }
+
+    await batch.commit();
+
+    return reply.code(201).send({
+      message: "Categories created",
+      count: data.length,
+    });
   });
 
   // UPDATE category

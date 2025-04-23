@@ -29,19 +29,25 @@ export async function commentRoutes(fastify: FastifyInstance) {
 
   // CREATE comment
   fastify.post("/comments", async (request, reply) => {
-    const data = request.body as Comment;
-    const now = new Date().toISOString();
+    const data = request.body as Comment[];
+  const now = new Date().toISOString();
 
-    const newComment = {
-      ...data,
+  const batch = db.batch();
+
+  for (const comment of data) {
+    const docRef = db.collection("comments").doc(comment.id);
+    batch.set(docRef, {
+      ...comment,
       createdAt: now,
       updatedAt: now,
-      likes: data.likes || 0,
-      replies: data.replies || [],
-    };
+      likes: comment.likes || 0,
+      replies: comment.replies || [],
+    });
+  }
 
-    await db.collection("comments").doc(data.id).set(newComment);
-    return reply.code(201).send({ message: "Comment created", id: data.id });
+  await batch.commit();
+
+  return reply.code(201).send({ message: "Multiple comments created", count: data.length });
   });
 
   // UPDATE comment

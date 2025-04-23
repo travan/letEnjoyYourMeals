@@ -6,7 +6,10 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
   // GET all restaurants
   fastify.get("/restaurants", async () => {
     const snapshot = await db.collection("restaurants").get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Restaurant[];
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Restaurant[];
   });
 
   // GET one restaurant
@@ -23,7 +26,29 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
 
   // CREATE new restaurant
   fastify.post("/restaurants", async (request, reply) => {
-    const data = request.body as Restaurant;
+    const data = request.body as Restaurant | Restaurant[];
+
+    if (Array.isArray(data)) {
+      const validData = data.filter((item) => item?.id);
+
+      if (validData.length === 0) {
+        return reply
+          .code(400)
+          .send({ message: "No valid restaurant entries provided" });
+      }
+
+      const batch = db.batch();
+      validData.forEach((restaurant) => {
+        const ref = db.collection("restaurants").doc(restaurant.id);
+        batch.set(ref, restaurant);
+      });
+
+      await batch.commit();
+      return reply
+        .code(201)
+        .send({ message: "Batch created", count: validData.length });
+    }
+
     if (!data.id) {
       return reply.code(400).send({ message: "Missing restaurant ID" });
     }
@@ -32,7 +57,6 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
     return reply.code(201).send({ message: "Created", id: data.id });
   });
 
-  // UPDATE restaurant
   fastify.put("/restaurants/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as Partial<Restaurant>;
@@ -41,7 +65,6 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
     return reply.code(200).send({ message: "Updated" });
   });
 
-  // DELETE restaurant
   fastify.delete("/restaurants/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
