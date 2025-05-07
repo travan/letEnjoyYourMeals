@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { Restaurant } from "../../../shared/data/index";
 import { immer } from "zustand/middleware/immer";
 import { devtools } from "zustand/middleware";
+import { Restaurant } from "../../../shared/data/index";
+import { updateQueue } from "../services/queueService";
 
 interface RestaurantState {
   restaurants: Record<string, Restaurant>;
@@ -9,6 +10,7 @@ interface RestaurantState {
   isLoading: boolean;
   error: string | null;
   fetched: boolean;
+  pendingChanges: number;
 }
 
 interface RestaurantActions {
@@ -17,55 +19,27 @@ interface RestaurantActions {
   addRestaurantLocal: (restaurant: Restaurant) => void;
   updateRestaurantLocal: (id: string, data: Partial<Restaurant>) => void;
   deleteRestaurantLocal: (id: string) => void;
-
-  // API actions
+  
+  // Queue actions
+  addRestaurant: (restaurant: Restaurant) => void;
+  updateRestaurant: (id: string, data: Partial<Restaurant>) => void;
+  deleteRestaurant: (id: string) => void;
+  
+  // Direct API actions
   fetchRestaurants: () => Promise<void>;
-  addRestaurant: (restaurant: Restaurant) => Promise<void>;
-  updateRestaurant: (id: string, data: Partial<Restaurant>) => Promise<void>;
-  deleteRestaurant: (id: string) => Promise<void>;
-
+  forceSyncChanges: () => Promise<void>;
+  
+  // Track pending changes
+  incrementPendingChanges: () => void;
+  decrementPendingChanges: () => void;
+  
   // Reset
   reset: () => void;
 }
 
 type RestaurantStore = RestaurantState & RestaurantActions;
 
-const restaurantService = {
-  fetch: async () => {
-    const res = await fetch("/api/restaurants");
-    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-    return res.json();
-  },
-  
-  add: async (restaurant: Restaurant) => {
-    const res = await fetch("/api/restaurants", {
-      method: "POST", 
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(restaurant),
-    });
-    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-    return res.json();
-  },
-  
-  update: async (id: string, data: Partial<Restaurant>) => {
-    const res = await fetch(`/api/restaurants/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-    return res.json();
-  },
-  
-  delete: async (id: string) => {
-    const res = await fetch(`/api/restaurants/${id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-    return res.json();
-  }
-};
-
+// Helper function để normalize data
 const normalizeRestaurants = (restaurants: Restaurant[]): { byId: Record<string, Restaurant>, ids: string[] } => {
   const byId: Record<string, Restaurant> = {};
   const ids: string[] = [];
@@ -86,6 +60,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
       isLoading: false,
       error: null,
       fetched: false,
+      pendingChanges: 0,
 
       // STATE MODIFIERS
       setRestaurants: (restaurants) => {
@@ -100,7 +75,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
       addRestaurantLocal: (restaurant) => {
         set((state) => {
           state.restaurants[restaurant.id] = restaurant;
-          state.ids.unshift(restaurant.id); // Thêm vào đầu danh sách
+          state.ids.unshift(restaurant.id);
         });
       },
       
@@ -115,18 +90,57 @@ export const useRestaurantStore = create<RestaurantStore>()(
       deleteRestaurantLocal: (id) => {
         set((state) => {
           delete state.restaurants[id];
-          state.ids = state.ids.filter((itemId: string) => itemId !== id);
+          state.ids = state.ids.filter(itemId => itemId !== id);
         });
       },
-
-      // API HANDLERS
+      
+      addRestaurant: (restaurant) => {
+        get().addRestaurantLocal(restaurant);
+        
+        updateQueue.enqueue({
+          type: 'restaurant',
+          action: 'add',
+          data: restaurant
+        });
+        
+        get().incrementPendingChanges();
+      },
+      
+      updateRestaurant: (id, data) => {
+        get().updateRestaurantLocal(id, data);
+        
+        updateQueue.enqueue({
+          type: 'restaurant',
+          action: 'update',
+          id,
+          data
+        });
+        
+        get().incrementPendingChanges();
+      },
+      
+      deleteRestaurant: (id) => {
+        get().deleteRestaurantLocal(id);
+        
+        updateQueue.enqueue({
+          type: 'restaurant',
+          action: 'delete',
+          id
+        });
+        
+        get().incrementPendingChanges();
+      },
+      
       fetchRestaurants: async () => {
         if (get().fetched) return;
         
         set((state) => { state.isLoading = true; state.error = null; });
         
         try {
-          const data = await restaurantService.fetch();
+          const res = await fetch("/api/restaurants");
+          if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+          
+          const data = await res.json();
           get().setRestaurants(data);
         } catch (err) {
           console.error("Failed to fetch restaurants", err);
@@ -137,63 +151,35 @@ export const useRestaurantStore = create<RestaurantStore>()(
           set((state) => { state.isLoading = false; });
         }
       },
-
-      addRestaurant: async (restaurant) => {
-        set((state) => { state.isLoading = true; state.error = null; });
-        
-        try {
-          await restaurantService.add(restaurant);
-          get().addRestaurantLocal(restaurant);
-        } catch (err) {
-          console.error("Failed to add restaurant", err);
-          set((state) => { 
-            state.error = err instanceof Error ? err.message : "Unknown error";
-          });
-        } finally {
-          set((state) => { state.isLoading = false; });
-        }
+      
+      forceSyncChanges: async () => {
+        await updateQueue.forceFlush();
+        set((state) => {
+          state.pendingChanges = 0;
+        });
       },
-
-      updateRestaurant: async (id, data) => {
-        set((state) => { state.isLoading = true; state.error = null; });
-        
-        try {
-          await restaurantService.update(id, data);
-          get().updateRestaurantLocal(id, data);
-        } catch (err) {
-          console.error("Failed to update restaurant", err);
-          set((state) => { 
-            state.error = err instanceof Error ? err.message : "Unknown error";
-          });
-        } finally {
-          set((state) => { state.isLoading = false; });
-        }
+      
+      incrementPendingChanges: () => {
+        set((state) => {
+          state.pendingChanges += 1;
+        });
       },
-
-      deleteRestaurant: async (id) => {
-        set((state) => { state.isLoading = true; state.error = null; });
-        
-        try {
-          await restaurantService.delete(id);
-          get().deleteRestaurantLocal(id);
-        } catch (err) {
-          console.error("Failed to delete restaurant", err);
-          set((state) => { 
-            state.error = err instanceof Error ? err.message : "Unknown error";
-          });
-        } finally {
-          set((state) => { state.isLoading = false; });
-        }
+      
+      decrementPendingChanges: () => {
+        set((state) => {
+          state.pendingChanges = Math.max(0, state.pendingChanges - 1);
+        });
       },
-
+      
       reset: () => set((state) => {
         state.restaurants = {};
         state.ids = [];
         state.isLoading = false;
         state.error = null;
         state.fetched = false;
+        state.pendingChanges = 0;
       }),
-    })), 
+    })),
     { name: 'restaurant-store' }
   )
 );
@@ -201,16 +187,4 @@ export const useRestaurantStore = create<RestaurantStore>()(
 export const useRestaurantsList = () => {
   const store = useRestaurantStore();
   return store.ids.map(id => store.restaurants[id]);
-};
-
-export const useRestaurantById = (id: string) => {
-  return useRestaurantStore(state => state.restaurants[id]);
-};
-
-export const useRestaurantLoading = () => {
-  return useRestaurantStore(state => state.isLoading);
-};
-
-export const useRestaurantError = () => {
-  return useRestaurantStore(state => state.error);
 };

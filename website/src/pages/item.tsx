@@ -22,8 +22,11 @@ import ImageSlider from "../components/SlideImages";
 import CommentModal from "../components/CommentModal";
 
 // Store
-import { useRestaurantsList, useRestaurantStore } from "../store/restaurantStore";
-import { useCommentStore } from "../store/commentStore";
+import {
+  useRestaurantsList,
+  useRestaurantStore,
+} from "../store/restaurantStore";
+import { useCommentsList, useCommentStore } from "../store/commentStore";
 import { useCategoryStore } from "../store/categoryStore";
 import { Comment, Restaurant } from "../../../shared/data/index";
 
@@ -40,7 +43,6 @@ interface Contact {
   phone?: string;
   website?: string;
 }
-
 
 interface RestaurantHeaderProps {
   name: string;
@@ -256,9 +258,13 @@ const RestaurantItem: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const restaurants = useRestaurantsList();
-  const updateRestaurant = useRestaurantStore((state) => state.updateRestaurant);
-  const { commentsByRestaurant, setComments, fetchComments } =
-    useCommentStore();
+  const updateRestaurant = useRestaurantStore(
+    (state) => state.updateRestaurant
+  );
+  const commentsByRestaurant = useCommentsList(id!);
+
+  const fetchComments = useCommentStore((state) => state.fetchComments);
+  const postComment = useCommentStore((state) => state.postComment);
   const { categories } = useCategoryStore();
 
   // All hooks at the top
@@ -272,12 +278,12 @@ const RestaurantItem: React.FC = () => {
   }, [restaurants, id]);
 
   const comments = useMemo(() => {
-    return id && commentsByRestaurant[id] ? commentsByRestaurant[id] : [];
+    return id && commentsByRestaurant ? commentsByRestaurant : [];
   }, [commentsByRestaurant, id]);
 
   // Early return if restaurant not found
   if (!restaurant || !id) {
-    return <div className="p-4">Không tìm thấy nhà hàng.</div>;
+    return <div className="p-4">Not found any restaurant.</div>;
   }
 
   // Fetch comments when component mounts
@@ -344,11 +350,9 @@ const RestaurantItem: React.FC = () => {
         const updated = [url, ...restaurant.image];
         const updatedData = { ...restaurant, image: updated };
 
-        // Update in store
         updateRestaurant(restaurant.id, updatedData);
 
-        // Clean up object URL to prevent memory leaks
-        return () => URL.revokeObjectURL(url);
+        // setTimeout(() => URL.revokeObjectURL(url), 5000);
       } catch (error) {
         console.error("Failed to upload image:", error);
       }
@@ -371,10 +375,9 @@ const RestaurantItem: React.FC = () => {
   const commentSetter = useCallback(
     (value: React.SetStateAction<Comment[]>) => {
       const newComments = typeof value === "function" ? value(comments) : value;
-
-      setComments(restaurant.id, newComments);
+      postComment(newComments[0]);
     },
-    [comments, restaurant.id, setComments]
+    [comments, postComment]
   );
 
   return (

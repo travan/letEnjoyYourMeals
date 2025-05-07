@@ -1,12 +1,21 @@
-import { restaurantRoutes } from './restaurant';
-import { uploadRoutes } from './upload';
-import { categoryRoutes } from './category';
-import { commentRoutes } from './comment';
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance } from "fastify";
+import { restaurantRoutes } from "./restaurant";
+import { uploadRoutes } from "./upload";
+import { categoryRoutes } from "./category";
+import { commentRoutes } from "./comment";
+import { authRoutes } from "./auth";
+import { authMiddleware } from "../middleware/verifyAuth";
 
 export async function apiRoutes(fastify: FastifyInstance) {
-  restaurantRoutes(fastify);
-  uploadRoutes(fastify);
-  categoryRoutes(fastify);
-  commentRoutes(fastify);
+  fastify.register(async function (protectedRoutes) {
+    protectedRoutes.addHook("preHandler", authMiddleware);
+
+    restaurantRoutes(protectedRoutes);
+    uploadRoutes(protectedRoutes);
+    categoryRoutes(protectedRoutes);
+    commentRoutes(protectedRoutes);
+  });
+
+  //auth
+  authRoutes(fastify);
 }

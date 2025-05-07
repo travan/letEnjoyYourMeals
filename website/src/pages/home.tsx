@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Restaurant, Category } from "../../../shared/data/index";
 import { RestaurantCard } from "../components/RestaurantCard";
 import { Bell, Search, X } from "lucide-react";
 import clsx from "clsx";
 import * as Ionicons from "react-icons/io5";
-import { useRestaurantsList, useRestaurantStore } from "../store/restaurantStore";
+import {
+  useRestaurantsList,
+  useRestaurantStore,
+} from "../store/restaurantStore";
 import { useCategoryStore } from "../store/categoryStore";
+import SyncIndicator from "./SyncIndicator";
+
 interface CategoryTabProps {
   category: Category;
   isSelected: boolean;
@@ -85,44 +90,16 @@ const SearchInput: React.FC<SearchInputProps> = ({ value, onChange }) => (
   </div>
 );
 
-// Main component
-const HomePage: React.FC = () => {
+function useHandleAddPhotoFromUrl(
+  restaurants: Restaurant[],
+  setRestaurants: (r: Restaurant[]) => void
+) {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const restaurants = useRestaurantsList();
-  const fetchRestaurants = useRestaurantStore(state => state.fetchRestaurants);
-  const setRestaurants = useRestaurantStore((state) => state.setRestaurants);
-  const { categories, fetchCategories } = useCategoryStore();
+  const hasHandledAddPhoto = useRef(false);
 
-  // State management
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedTab, setSelectedTab] = useState<string>("all");
-  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
-  const [showPreview, setShowPreview] = useState<boolean>(false);
-  const [previewImage, setPreviewImage] = useState<string>("");
-
-  // Fetch data on component mount
   useEffect(() => {
-    fetchRestaurants();
-    fetchCategories();
-  }, [fetchRestaurants, fetchCategories]);
+    if (hasHandledAddPhoto.current) return;
 
-  // Filter restaurants based on search and category
-  const filteredRestaurants = useMemo(() => {
-    return restaurants.filter((r) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        r.name.toLowerCase().includes(q) ||
-        (r.location?.toLowerCase() || "").includes(q) ||
-        (r.description?.toLowerCase() || "").includes(q);
-      const matchesCategory =
-        selectedTab === "all" || r.category === selectedTab;
-      return matchesSearch && matchesCategory;
-    });
-  }, [restaurants, searchQuery, selectedTab]);
-
-  // Handle new restaurant from URL params
-  useEffect(() => {
     const action = searchParams.get("action");
     if (action === "addPhoto") {
       const name = searchParams.get("name") || "New Restaurant";
@@ -148,19 +125,71 @@ const HomePage: React.FC = () => {
         };
         setRestaurants([newRestaurant, ...restaurants]);
       }
+
+      hasHandledAddPhoto.current = true;
     }
   }, [searchParams, restaurants, setRestaurants]);
+}
+
+// Main component
+const HomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const restaurants = useRestaurantsList();
+  const fetchRestaurants = useRestaurantStore(
+    (state) => state.fetchRestaurants
+  );
+  const setRestaurants = useRestaurantStore((state) => state.setRestaurants);
+  const { categories, fetchCategories } = useCategoryStore();
+
+  // State management
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedTab, setSelectedTab] = useState<string>("all");
+  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const [showPreview, setShowPreview] = useState<boolean>(false);
+  const [previewImage, setPreviewImage] = useState<string>("");
+
+  // Fetch data on component mount
+  useEffect(() => {
+    if (restaurants.length === 0) fetchRestaurants();
+    if (categories.length === 0) fetchCategories();
+  }, [
+    fetchRestaurants,
+    fetchCategories,
+    restaurants.length,
+    categories.length,
+  ]);
+
+  // Filter restaurants based on search and category
+  const filteredRestaurants = useMemo(() => {
+    return restaurants.filter((r) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        r.name.toLowerCase().includes(q) ||
+        (r.location?.toLowerCase() || "").includes(q) ||
+        (r.description?.toLowerCase() || "").includes(q);
+      const matchesCategory =
+        selectedTab === "all" || r.category === selectedTab;
+      return matchesSearch && matchesCategory;
+    });
+  }, [restaurants, searchQuery, selectedTab]);
+
+  // Handle new restaurant from URL params
+  useHandleAddPhotoFromUrl(restaurants, setRestaurants);
 
   // Event handlers using useCallback
   const handleRestaurantClick = useCallback(
     (restaurant: Restaurant) => {
-      navigate(`/restaurant/${restaurant.id}`);
+      if (location.pathname !== `/restaurant/${restaurant.id}`) {
+        navigate(`/restaurant/${restaurant.id}`);
+      }
     },
-    [navigate]
+    [location.pathname, navigate]
   );
 
   const handleCategorySelect = useCallback((categoryId: string) => {
     setSelectedTab(categoryId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const handlePhotoPress = useCallback((imageUrl: string) => {
@@ -219,6 +248,7 @@ const HomePage: React.FC = () => {
 
       {/* Restaurant grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <SyncIndicator />
         {filteredRestaurants.map((restaurant) => (
           <RestaurantCard
             key={restaurant.id}

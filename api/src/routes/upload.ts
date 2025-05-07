@@ -23,16 +23,13 @@ export async function uploadRoutes(fastify: FastifyInstance) {
 
     await pump(file.file, fs.createWriteStream(tempPath));
 
-    console.log("check1")
     const check = await bucket.upload(tempPath, {
       destination: `uploads/${fileId}`,
       metadata: { contentType: file.mimetype },
     });
 
-    console.log("check",check)
-
     const uploadedFile = bucket.file(`uploads/${fileId}`);
-    await uploadedFile.makePublic(); // hoặc dùng getSignedUrl để bảo mật
+    await uploadedFile.makePublic();
 
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/uploads/${fileId}`;
 
@@ -41,4 +38,5 @@ export async function uploadRoutes(fastify: FastifyInstance) {
       url: publicUrl,
     });
   });
+  
 }
