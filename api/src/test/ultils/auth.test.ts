@@ -15,8 +15,8 @@ import { db } from "../../utils/firebase";
 import jwt from "jsonwebtoken";
 import { GeoPoint } from "firebase-admin/firestore";
 import { v4 as uuidv4 } from "uuid";
-
-
+import { FastifyRequest } from "fastify";
+import crypto from "node:crypto";
 
 // reset mocks
 jest.mock("node-fetch", () => jest.fn());
@@ -264,6 +264,102 @@ describe("saveSession", () => {
       ...mockData,
       userId: "user123",
       sessionId: "mock-session-id",
+    });
+  });
+});
+
+describe("auth utils", () => {
+  const payload = { id: "user123" };
+  const secret = "test-secret";
+  const fakeToken = "fake.jwt.token";
+
+  beforeEach(() => {
+    process.env.JWT_SECRET = secret;
+    jest.resetAllMocks();
+  });
+
+  describe("generateTokenMiddle", () => {
+    it("should generate JWT token with payload and secret", () => {
+      (jwt.sign as jest.Mock).mockReturnValue(fakeToken);
+
+      const token = generateTokenMiddle(payload);
+
+      expect(token).toBe(fakeToken);
+      expect(jwt.sign).toHaveBeenCalledWith(payload, secret, {
+        expiresIn: "15m",
+      });
+    });
+
+    it("should throw error if JWT_SECRET is not defined", () => {
+      delete process.env.JWT_SECRET;
+
+      expect(() => generateTokenMiddle(payload)).toThrow(
+        "JWT_SECRET not defined"
+      );
+    });
+  });
+
+  describe("verifyToken", () => {
+    it("should verify token with JWT_SECRET", () => {
+      (jwt.verify as jest.Mock).mockReturnValue(payload);
+
+      const decoded = verifyToken(fakeToken);
+
+      expect(decoded).toBe(payload);
+      expect(jwt.verify).toHaveBeenCalledWith(fakeToken, secret);
+    });
+  });
+
+  describe("getClientInfo", () => {
+    it("should return correct client info from headers and body", () => {
+      const request = {
+        headers: {
+          "x-forwarded-for": "1.2.3.4, 5.6.7.8",
+          "user-agent": "Mozilla/5.0",
+        },
+        ip: "5.5.5.5",
+        body: {
+          location: { lat: 10, lng: 20 },
+        },
+      } as unknown as FastifyRequest;
+
+      const result = getClientInfo(request);
+
+      const expectedHash = crypto
+        .createHash("sha256")
+        .update("1.2.3.4|Mozilla/5.0")
+        .digest("hex");
+
+      expect(result).toEqual({
+        ip: "1.2.3.4",
+        userAgent: "Mozilla/5.0",
+        deviceHash: expectedHash,
+        location: { lat: 10, lng: 20 },
+      });
+    });
+
+    it("should fallback to request.ip and user-agent 'unknown'", () => {
+      const request = {
+        headers: {},
+        ip: "9.9.9.9",
+        query: {
+          location: { lat: 1, lng: 2 },
+        },
+      } as unknown as FastifyRequest;
+
+      const result = getClientInfo(request);
+
+      const expectedHash = crypto
+        .createHash("sha256")
+        .update("9.9.9.9|unknown")
+        .digest("hex");
+
+      expect(result).toEqual({
+        ip: "9.9.9.9",
+        userAgent: "unknown",
+        deviceHash: expectedHash,
+        location: { lat: 1, lng: 2 },
+      });
     });
   });
 });

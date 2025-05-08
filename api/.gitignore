@@ -1,5 +1,6 @@
 node_modules
 uploads
 .env
+coverage
 
 src/utils/serviceAccountKey.json
