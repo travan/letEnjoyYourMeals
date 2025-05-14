@@ -14,29 +14,24 @@ interface CommentState {
 }
 
 interface CommentActions {
-  // State modifiers
   setComments: (restaurantId: string, comments: Comment[]) => void;
   addCommentToStore: (comment: Comment) => void;
   updateCommentInStore: (id: string, data: Partial<Comment>) => void;
   deleteCommentFromStore: (id: string, restaurantId: string) => void;
 
-  // Queue actions
   postComment: (comment: Comment) => void;
   putComment: (id: string, data: Partial<Comment>) => void;
   removeComment: (id: string, restaurantId: string) => void;
 
-  // Direct API actions
   fetchComments: (restaurantId: string) => Promise<void>;
   forceSyncChanges: () => Promise<void>;
 
-  // Track pending changes
   incrementPendingChanges: () => void;
   decrementPendingChanges: () => void;
 }
 
 type CommentStore = CommentState & CommentActions;
 
-// Helper function
 const normalizeComments = (
   comments: Comment[]
 ): {
@@ -161,7 +156,13 @@ export const useCommentStore = create<CommentStore>()(
         });
 
         try {
-          const res = await fetch(`/api/comments?restaurantId=${restaurantId}`);
+          const res = await fetch(
+            `/api/comments?restaurantId=${restaurantId}`,
+            {
+              method: "GET",
+              credentials: "include",
+            }
+          );
           if (!res.ok)
             throw new Error(`Error ${res.status}: ${res.statusText}`);
 
@@ -208,9 +209,7 @@ export const useCommentsList = (restaurantId: string) => {
     (state) => state.commentIdsByRestaurant[restaurantId]
   );
 
-  // Nếu restaurantId không có comment, trả về mảng trống
   if (!commentIds) return [];
 
-  // Lọc các comment bằng các ID lấy từ commentIdsByRestaurant
   return commentIds.map((id) => comments[id]);
 };

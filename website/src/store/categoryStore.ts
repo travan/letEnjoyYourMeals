@@ -38,7 +38,10 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   fetchCategories: async () => {
     if (get().fetched) return; // ✅ Không fetch lại nếu đã có
     try {
-      const res = await fetch("/api/categories");
+      const res = await fetch("/api/categories", {
+        method: "GET",
+        credentials: "include",
+      });
       const data = await res.json();
       set({ categories: data, fetched: true });
     } catch (err) {

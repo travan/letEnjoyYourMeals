@@ -37,15 +37,11 @@ describe('verifyLocationMiddleware', () => {
   });
 
   it('should allow trusted login (location verified)', async () => {
-    // Mock getClientInfo to return a known device and location
     (getClientInfo as jest.Mock).mockReturnValue({ deviceHash: mockDeviceHash, location: mockLocation, ip: mockIp });
 
-    // Mock verifyLocation to return true (location is trusted)
     (verifyLocation as jest.Mock).mockResolvedValue(true);
 
     await verifyLocationMiddleware(request, reply);
-
-    // Ensure that the middleware does not block the request
     expect(reply.status).not.toHaveBeenCalled();
     expect(reply.send).not.toHaveBeenCalled();
   });
@@ -88,7 +84,6 @@ describe('verifyLocationMiddleware', () => {
   });
 
   it('should handle errors gracefully and log them', async () => {
-    // Mock getClientInfo to throw an error
     (getClientInfo as jest.Mock).mockImplementation(() => { throw new Error('Client info error'); });
 
     await verifyLocationMiddleware(request, reply);

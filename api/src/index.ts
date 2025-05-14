@@ -1,8 +1,22 @@
 import Fastify from "fastify";
-import {apiRoutes} from "./routes";
+import fastifyCookie from "@fastify/cookie";
+import fastifyCors from "@fastify/cors";
+import { apiRoutes } from "./routes";
+import dotenv from 'dotenv';
+dotenv.config();
+
 const app = Fastify();
 
-app.register(apiRoutes, { prefix: '/api' });
+app.register(fastifyCors, {
+  origin: "http://localhost:5173",
+  credentials: true,
+});
+
+app.register(fastifyCookie, {
+  secret: process.env.COOKIE_SECRET!,
+});
+
+app.register(apiRoutes, { prefix: "/api" });
 
 app.listen({ port: 3000 }, (err, address) => {
   if (err) {

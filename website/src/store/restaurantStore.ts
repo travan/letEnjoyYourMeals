@@ -14,41 +14,37 @@ interface RestaurantState {
 }
 
 interface RestaurantActions {
-  // State modifiers
   setRestaurants: (restaurants: Restaurant[]) => void;
   addRestaurantLocal: (restaurant: Restaurant) => void;
   updateRestaurantLocal: (id: string, data: Partial<Restaurant>) => void;
   deleteRestaurantLocal: (id: string) => void;
-  
-  // Queue actions
+
   addRestaurant: (restaurant: Restaurant) => void;
   updateRestaurant: (id: string, data: Partial<Restaurant>) => void;
   deleteRestaurant: (id: string) => void;
-  
-  // Direct API actions
+
   fetchRestaurants: () => Promise<void>;
   forceSyncChanges: () => Promise<void>;
-  
-  // Track pending changes
+
   incrementPendingChanges: () => void;
   decrementPendingChanges: () => void;
-  
-  // Reset
+
   reset: () => void;
 }
 
 type RestaurantStore = RestaurantState & RestaurantActions;
 
-// Helper function để normalize data
-const normalizeRestaurants = (restaurants: Restaurant[]): { byId: Record<string, Restaurant>, ids: string[] } => {
+const normalizeRestaurants = (
+  restaurants: Restaurant[]
+): { byId: Record<string, Restaurant>; ids: string[] } => {
   const byId: Record<string, Restaurant> = {};
   const ids: string[] = [];
-  
-  restaurants.forEach(restaurant => {
+
+  restaurants.forEach((restaurant) => {
     byId[restaurant.id] = restaurant;
     ids.push(restaurant.id);
   });
-  
+
   return { byId, ids };
 };
 
@@ -71,14 +67,14 @@ export const useRestaurantStore = create<RestaurantStore>()(
           state.fetched = true;
         });
       },
-      
+
       addRestaurantLocal: (restaurant) => {
         set((state) => {
           state.restaurants[restaurant.id] = restaurant;
           state.ids.unshift(restaurant.id);
         });
       },
-      
+
       updateRestaurantLocal: (id, data) => {
         set((state) => {
           if (state.restaurants[id]) {
@@ -86,105 +82,115 @@ export const useRestaurantStore = create<RestaurantStore>()(
           }
         });
       },
-      
+
       deleteRestaurantLocal: (id) => {
         set((state) => {
           delete state.restaurants[id];
-          state.ids = state.ids.filter(itemId => itemId !== id);
+          state.ids = state.ids.filter((itemId) => itemId !== id);
         });
       },
-      
+
       addRestaurant: (restaurant) => {
         get().addRestaurantLocal(restaurant);
-        
+
         updateQueue.enqueue({
-          type: 'restaurant',
-          action: 'add',
-          data: restaurant
+          type: "restaurant",
+          action: "add",
+          data: restaurant,
         });
-        
+
         get().incrementPendingChanges();
       },
-      
+
       updateRestaurant: (id, data) => {
         get().updateRestaurantLocal(id, data);
-        
+
         updateQueue.enqueue({
-          type: 'restaurant',
-          action: 'update',
+          type: "restaurant",
+          action: "update",
           id,
-          data
+          data,
         });
-        
+
         get().incrementPendingChanges();
       },
-      
+
       deleteRestaurant: (id) => {
         get().deleteRestaurantLocal(id);
-        
+
         updateQueue.enqueue({
-          type: 'restaurant',
-          action: 'delete',
-          id
+          type: "restaurant",
+          action: "delete",
+          id,
         });
-        
+
         get().incrementPendingChanges();
       },
-      
+
       fetchRestaurants: async () => {
         if (get().fetched) return;
-        
-        set((state) => { state.isLoading = true; state.error = null; });
-        
+
+        set((state) => {
+          state.isLoading = true;
+          state.error = null;
+        });
+
         try {
-          const res = await fetch("/api/restaurants");
-          if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
-          
+          const res = await fetch("/api/restaurants", {
+            method: "GET",
+            credentials: "include",
+          });
+          if (!res.ok)
+            throw new Error(`Error ${res.status}: ${res.statusText}`);
+
           const data = await res.json();
           get().setRestaurants(data);
         } catch (err) {
           console.error("Failed to fetch restaurants", err);
-          set((state) => { 
+          set((state) => {
             state.error = err instanceof Error ? err.message : "Unknown error";
           });
         } finally {
-          set((state) => { state.isLoading = false; });
+          set((state) => {
+            state.isLoading = false;
+          });
         }
       },
-      
+
       forceSyncChanges: async () => {
         await updateQueue.forceFlush();
         set((state) => {
           state.pendingChanges = 0;
         });
       },
-      
+
       incrementPendingChanges: () => {
         set((state) => {
           state.pendingChanges += 1;
         });
       },
-      
+
       decrementPendingChanges: () => {
         set((state) => {
           state.pendingChanges = Math.max(0, state.pendingChanges - 1);
         });
       },
-      
-      reset: () => set((state) => {
-        state.restaurants = {};
-        state.ids = [];
-        state.isLoading = false;
-        state.error = null;
-        state.fetched = false;
-        state.pendingChanges = 0;
-      }),
+
+      reset: () =>
+        set((state) => {
+          state.restaurants = {};
+          state.ids = [];
+          state.isLoading = false;
+          state.error = null;
+          state.fetched = false;
+          state.pendingChanges = 0;
+        }),
     })),
-    { name: 'restaurant-store' }
+    { name: "restaurant-store" }
   )
 );
 
 export const useRestaurantsList = () => {
   const store = useRestaurantStore();
-  return store.ids.map(id => store.restaurants[id]);
+  return store.ids.map((id) => store.restaurants[id]);
 };

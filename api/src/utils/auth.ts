@@ -1,11 +1,9 @@
-import crypto from "crypto";
+import crypto, { randomBytes } from "crypto";
 import { FastifyRequest } from "fastify";
 import { v4 as uuidv4 } from "uuid";
 import jwt from "jsonwebtoken";
 import { db } from "./firebase";
 import { GeoPoint } from "firebase-admin/firestore";
-
-const JWT_SECRET = process.env.JWT_SECRET || "";
 
 export type SessionData = {
   clientInfo: {
@@ -21,15 +19,31 @@ export function hashDeviceId(deviceId: string) {
   return crypto.createHash("sha256").update(deviceId).digest("hex");
 }
 
-export async function verifyCaptcha(token: string): Promise<boolean> {
-  const secret = process.env.RECAPTCHA_SECRET;
-  const res = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${secret}&response=${token}`,
+export async function generateCaptcha() {
+  const value = randomBytes(3).toString("hex");
+  const captchaId = randomBytes(8).toString("hex");
+
+  await db.collection("captchas").doc(captchaId).set({
+    value,
+    createdAt: Date.now(),
+    used: false,
   });
-  const data = await res.json();
-  return data.success && data.score > 0.5;
+
+  return { captchaId, question: `Enter this code: ${value}` };
+}
+
+export async function verifyCaptchaToken(captchaId: string, userInput: string) {
+  const doc = await db.collection("captchas").doc(captchaId).get();
+  if (!doc.exists) return false;
+
+  const data: any = doc.data();
+  const expired = Date.now() - data.createdAt > 5 * 60 * 1000;
+  if (data.used || expired) return false;
+
+  if (data.value.toLowerCase() !== userInput.toLowerCase()) return false;
+
+  await doc.ref.update({ used: true });
+  return true;
 }
 
 export function generateTokenMiddle(payload: any): string {
@@ -39,13 +53,14 @@ export function generateTokenMiddle(payload: any): string {
 }
 
 export function verifyToken(token: string): any {
-  return jwt.verify(token, JWT_SECRET);
+  const usedSecret = process.env.JWT_SECRET;
+  if (!usedSecret) throw new Error("JWT_SECRET not defined");
+  return jwt.verify(token, usedSecret);
 }
 
 export function getClientInfo(request: FastifyRequest) {
   const ip =
-    request.headers["x-forwarded-for"]?.toString().split(",")[0] ||
-    request.ip;
+    request.headers["x-forwarded-for"]?.toString().split(",")[0] || request.ip;
   const userAgent = request.headers["user-agent"] || "unknown";
   const fingerprintRaw = `${ip}|${userAgent}`;
   const deviceHash = crypto
@@ -54,9 +69,7 @@ export function getClientInfo(request: FastifyRequest) {
     .digest("hex");
 
   const location =
-    (request.body as any)?.location ||
-    (request.query as any)?.location ||
-    null;
+    (request.body as any)?.location || (request.query as any)?.location || null;
 
   return {
     ip,

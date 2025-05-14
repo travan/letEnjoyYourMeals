@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import {
-  verifyCaptcha,
+  generateCaptcha,
+  verifyCaptchaToken,
   getClientInfo,
   generateTokenMiddle,
   saveSession,
@@ -11,14 +12,22 @@ import {
 import { db } from "../utils/firebase";
 
 export async function authRoutes(fastify: FastifyInstance) {
-  fastify.post("/auth", async (req, reply) => {
-    const { captchaToken } = req.body as { captchaToken: string };
+  fastify.get("/auth/captcha", async (_, reply) => {
+    const captcha = await generateCaptcha();
+    return reply.send(captcha);
+  });
 
-    if (!captchaToken) {
-      return reply.code(400).send({ error: "Missing captcha token" });
+  fastify.post("/auth", async (req, reply) => {
+    const { captchaId, captchaToken } = req.body as {
+      captchaId: string;
+      captchaToken: string;
+    };
+
+    if (!captchaId || !captchaToken) {
+      return reply.code(400).send({ error: "Missing captcha information" });
     }
 
-    const validCaptcha = await verifyCaptcha(captchaToken);
+    const validCaptcha = await verifyCaptchaToken(captchaId, captchaToken);
     if (!validCaptcha) {
       return reply.code(403).send({ error: "Captcha validation failed" });
     }
@@ -35,23 +44,37 @@ export async function authRoutes(fastify: FastifyInstance) {
     );
 
     if (!validLocation) {
-      return reply.code(403).send({ error: "Suspicious location or IP change" });
+      return reply
+        .code(403)
+        .send({ error: "Suspicious location or IP change" });
     }
 
     const token = generateTokenMiddle({ device: clientInfo.deviceHash });
-    await storeDevice(clientInfo.deviceHash, clientInfo.location, clientInfo.ip);
+    await storeDevice(
+      clientInfo.deviceHash,
+      clientInfo.location,
+      clientInfo.ip
+    );
     await saveSession(clientInfo.deviceHash, { clientInfo, token });
 
-    return reply.send({ token });
+    reply.setCookie("token", token, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24,
+    });
+
+    return reply.send({ success: true });
   });
 
   fastify.post("/auth/revoke", async (req, reply) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return reply.code(401).send({ error: "Missing or invalid token" });
+    const token = req.cookies.token;
+
+    if (!token) {
+      return reply.code(401).send({ error: "Missing token" });
     }
 
-    const token = authHeader.split(" ")[1];
     let decoded: any;
     try {
       decoded = verifyToken(token);
@@ -74,21 +97,23 @@ export async function authRoutes(fastify: FastifyInstance) {
       await tokenSnap.ref.delete();
     }
 
+    reply.clearCookie("token", { path: "/" });
+
     return reply.send({ success: true });
   });
 
   fastify.get("/auth/me", async (req, reply) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return reply.code(401).send({ error: "Missing or invalid token" });
+    const token = req.cookies.token;
+
+    if (!token) {
+      return reply.code(401).send({ error: "Missing token" });
     }
-  
-    const token = authHeader.split(" ")[1];
-  
+
     let decoded: any;
     try {
       decoded = verifyToken(token);
     } catch {
+      reply.clearCookie("token", { path: "/" });
       return reply.code(401).send({ error: "Invalid or expired token" });
     }
 
@@ -97,11 +122,12 @@ export async function authRoutes(fastify: FastifyInstance) {
       .where("token", "==", token)
       .limit(1)
       .get();
-  
+
     if (sessionSnap.empty) {
+      reply.clearCookie("token", { path: "/" });
       return reply.code(401).send({ error: "Session revoked or not found" });
     }
-  
+
     const sessionData = sessionSnap.docs[0].data();
     return reply.send({ session: sessionData });
   });

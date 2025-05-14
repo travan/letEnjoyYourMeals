@@ -6,12 +6,11 @@ export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const authHeader = request.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return reply.code(401).send({ error: "Missing or invalid token" });
-  }
+  const token = request.cookies?.token;
 
-  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return reply.code(401).send({ error: "Missing auth token in cookie" });
+  }
 
   let decoded: any;
   try {

@@ -40,7 +40,6 @@ class UpdateQueue {
     }
 
     this.flushDebounced();
-
     return queueItem;
   }
 
@@ -72,15 +71,23 @@ class UpdateQueue {
     }
   }
 
+  private getAuthHeader() {
+    return {
+      "Content-Type": "application/json",
+    };
+  }
+
   private async processRestaurantItem(item: QueueItem) {
     const { action, id, data } = item;
+    const headers = this.getAuthHeader();
 
     switch (action) {
       case 'add':
         await fetch("/api/restaurants", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
+          credentials: "include",
         });
         break;
 
@@ -88,8 +95,9 @@ class UpdateQueue {
         if (!id) throw new Error('ID is required for update');
         await fetch(`/api/restaurants/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
+          credentials: "include",
         });
         break;
 
@@ -97,6 +105,8 @@ class UpdateQueue {
         if (!id) throw new Error('ID is required for delete');
         await fetch(`/api/restaurants/${id}`, {
           method: "DELETE",
+          headers,
+          credentials: "include",
         });
         break;
     }
@@ -104,13 +114,15 @@ class UpdateQueue {
 
   private async processCommentItem(item: QueueItem) {
     const { action, id, data } = item;
+    const headers = this.getAuthHeader();
 
     switch (action) {
       case 'add':
         await fetch("/api/comments", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
+          credentials: "include",
         });
         break;
 
@@ -118,8 +130,9 @@ class UpdateQueue {
         if (!id) throw new Error('ID is required for update');
         await fetch(`/api/comments/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
+          credentials: "include",
         });
         break;
 
@@ -127,6 +140,8 @@ class UpdateQueue {
         if (!id) throw new Error('ID is required for delete');
         await fetch(`/api/comments/${id}`, {
           method: "DELETE",
+          headers,
+          credentials: "include",
         });
         break;
     }

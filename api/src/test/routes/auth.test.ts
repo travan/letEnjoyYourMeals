@@ -1,192 +1,146 @@
-import Fastify from 'fastify';
-import supertest from 'supertest';
-import { authRoutes } from '../../routes/auth';
-import * as authUtils from '../../utils/auth';
-import { db } from '../../utils/firebase';
 
-jest.mock('../../utils/auth');
-jest.mock('../../utils/firebase');
+import fastify from "fastify";
+import cookie from "@fastify/cookie";
+import { authRoutes } from "../../routes/auth";
+import * as authUtils from "../../utils/auth";
+import { db } from "../../utils/firebase";
 
-const mockDb = {
-  collection: jest.fn().mockReturnThis(),
-  doc: jest.fn().mockReturnThis(),
-  set: jest.fn(),
-  get: jest.fn(),
-  where: jest.fn().mockReturnThis(),
-  limit: jest.fn().mockReturnThis(),
-  delete: jest.fn(),
-};
+jest.mock("../../utils/auth");
+jest.mock("../../utils/firebase");
 
-(db as any).collection = mockDb.collection;
-mockDb.collection.mockReturnValue({
-  doc: () => ({ set: jest.fn(), get: jest.fn().mockResolvedValue({ exists: false }) }),
-  where: () => ({
-    limit: () => ({
-      get: jest.fn().mockResolvedValue({ empty: true }),
-    }),
-  }),
-});
+const mockedAuth = authUtils as jest.Mocked<typeof authUtils>;
+const mockedDb = db as any;
 
-describe('Auth API routes', () => {
-  const fastify = Fastify();
+describe("Auth Routes", () => {
+  let app: ReturnType<typeof fastify>;
 
   beforeAll(async () => {
-    await fastify.register(authRoutes);
-    await fastify.ready();
+    app = fastify();
+    app.register(cookie);
+    app.register(authRoutes);
+    await app.ready();
   });
 
-  afterAll(() => fastify.close());
+  afterAll(() => app.close());
 
-  describe('POST /auth', () => {
-    it('should return 400 if captcha token is missing', async () => {
-      const res = await supertest(fastify.server).post('/auth').send({});
-      expect(res.status).toBe(400);
-      expect(res.body).toEqual({ error: 'Missing captcha token' });
+  test("GET /auth/captcha returns captcha data", async () => {
+    mockedAuth.generateCaptcha.mockResolvedValue({
+      captchaId: "123abc",
+      question: "Enter this code: 456def",
     });
 
-    it('should return 403 if captcha invalid', async () => {
-      (authUtils.verifyCaptcha as jest.Mock).mockResolvedValue(false);
-
-      const res = await supertest(fastify.server).post('/auth').send({ captchaToken: 'abc' });
-      expect(res.status).toBe(403);
-      expect(res.body).toEqual({ error: 'Captcha validation failed' });
+    const res = await app.inject({
+      method: "GET",
+      url: "/auth/captcha",
     });
 
-    it('should return 400 if location is missing', async () => {
-      (authUtils.verifyCaptcha as jest.Mock).mockResolvedValue(true);
-      (authUtils.getClientInfo as jest.Mock).mockReturnValue({ location: null });
-
-      const res = await supertest(fastify.server).post('/auth').send({ captchaToken: 'abc' });
-      expect(res.status).toBe(400);
-      expect(res.body).toEqual({ error: 'Missing location data' });
-    });
-
-    it('should return 403 if location verification fails', async () => {
-      (authUtils.verifyCaptcha as jest.Mock).mockResolvedValue(true);
-      (authUtils.getClientInfo as jest.Mock).mockReturnValue({
-        location: { latitude: 10, longitude: 10 },
-        ip: '1.1.1.1',
-        deviceHash: 'device123',
-      });
-      (authUtils.verifyLocation as jest.Mock).mockResolvedValue(false);
-
-      const res = await supertest(fastify.server).post('/auth').send({ captchaToken: 'abc' });
-      expect(res.status).toBe(403);
-      expect(res.body).toEqual({ error: 'Suspicious location or IP change' });
-    });
-
-    it('should return token on successful auth', async () => {
-      (authUtils.verifyCaptcha as jest.Mock).mockResolvedValue(true);
-      (authUtils.getClientInfo as jest.Mock).mockReturnValue({
-        location: { latitude: 10, longitude: 10 },
-        ip: '1.1.1.1',
-        deviceHash: 'device123',
-      });
-      (authUtils.verifyLocation as jest.Mock).mockResolvedValue(true);
-      (authUtils.generateTokenMiddle as jest.Mock).mockReturnValue('token123');
-      (authUtils.storeDevice as jest.Mock).mockResolvedValue(true);
-      (authUtils.saveSession as jest.Mock).mockResolvedValue(true);
-
-      const res = await supertest(fastify.server).post('/auth').send({
-        captchaToken: 'valid',
-        location: { latitude: 10, longitude: 10 },
-      });
-
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ token: 'token123' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      captchaId: "123abc",
+      question: "Enter this code: 456def",
     });
   });
 
-  describe('POST /auth/revoke', () => {
-    it('should return 401 if missing Bearer token', async () => {
-      const res = await supertest(fastify.server).post('/auth/revoke');
-      expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Missing or invalid token' });
+  test("POST /auth with missing captcha", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth",
+      payload: {},
     });
 
-    it('should return 401 if invalid token', async () => {
-      (authUtils.verifyToken as jest.Mock).mockImplementation(() => {
-        throw new Error('Invalid');
-      });
-
-      const res = await supertest(fastify.server)
-        .post('/auth/revoke')
-        .set('Authorization', 'Bearer invalidtoken');
-
-      expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Invalid or expired token' });
-    });
-
-    it('should return success when session & token revoked', async () => {
-      (authUtils.verifyToken as jest.Mock).mockReturnValue({ device: 'device123' });
-      const fakeRef = { delete: jest.fn() };
-
-      mockDb.collection.mockReturnValueOnce({
-        where: () => ({
-          limit: () => ({
-            get: () => Promise.resolve({
-              empty: false,
-              docs: [{ ref: fakeRef }],
-            }),
-          }),
-        }),
-      });
-
-      mockDb.collection.mockReturnValueOnce({
-        doc: () => ({
-          get: () => Promise.resolve({ exists: true, ref: fakeRef }),
-        }),
-      });
-
-      const res = await supertest(fastify.server)
-        .post('/auth/revoke')
-        .set('Authorization', 'Bearer valid');
-
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ success: true });
-    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: "Missing captcha information" });
   });
 
-  describe('GET /auth/me', () => {
-    it('should return 401 if missing token', async () => {
-      const res = await supertest(fastify.server).get('/auth/me');
-      expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Missing or invalid token' });
+  test("POST /auth with invalid captcha", async () => {
+    mockedAuth.verifyCaptchaToken.mockResolvedValue(false);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth",
+      payload: { captchaId: "abc", captchaToken: "wrong" },
     });
 
-    it('should return 401 if token invalid', async () => {
-      (authUtils.verifyToken as jest.Mock).mockImplementation(() => {
-        throw new Error('Invalid');
-      });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toEqual({ error: "Captcha validation failed" });
+  });
 
-      const res = await supertest(fastify.server)
-        .get('/auth/me')
-        .set('Authorization', 'Bearer invalid');
+  test("POST /auth with valid flow", async () => {
+    mockedAuth.verifyCaptchaToken.mockResolvedValue(true);
+    mockedAuth.getClientInfo.mockReturnValue({
+      ip: "127.0.0.1",
+      userAgent: "test-agent",
+      deviceHash: "hash123",
+      location: { latitude: 10, longitude: 106 },
+    });
+    mockedAuth.verifyLocation.mockResolvedValue(true);
+    mockedAuth.generateTokenMiddle.mockReturnValue("token123");
+    mockedAuth.storeDevice.mockResolvedValue(undefined);
+    mockedAuth.saveSession.mockResolvedValue("sessionId");
 
-      expect(res.status).toBe(401);
-      expect(res.body).toEqual({ error: 'Invalid or expired token' });
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth",
+      payload: { captchaId: "abc", captchaToken: "right" },
     });
 
-    it('should return session if valid', async () => {
-      (authUtils.verifyToken as jest.Mock).mockReturnValue({ device: 'abc' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ success: true });
+    expect(res.cookies[0].name).toBe("token");
+  });
 
-      mockDb.collection.mockReturnValueOnce({
-        where: () => ({
-          limit: () => ({
-            get: () => Promise.resolve({
-              empty: false,
-              docs: [{ data: () => ({ clientInfo: {}, token: 't' }) }],
-            }),
-          }),
-        }),
-      });
+  test("POST /auth/revoke with valid token", async () => {
+    mockedAuth.verifyToken.mockReturnValue({ device: "abc" });
 
-      const res = await supertest(fastify.server)
-        .get('/auth/me')
-        .set('Authorization', 'Bearer valid');
+    const mockSession = {
+      empty: false,
+      docs: [{ ref: { delete: jest.fn() } }],
+    };
+    const mockToken = { exists: true, ref: { delete: jest.fn() } };
 
-      expect(res.status).toBe(200);
-      expect(res.body.session).toBeDefined();
+    mockedDb.collection = jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue(mockSession),
+      doc: jest.fn().mockReturnValue({ get: jest.fn().mockResolvedValue(mockToken) }),
     });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/revoke",
+      cookies: { token: "token123" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ success: true });
+  });
+
+  test("GET /auth/me with missing token", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/auth/me",
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: "Missing token" });
+  });
+
+  test("GET /auth/me with revoked session", async () => {
+    mockedAuth.verifyToken.mockReturnValue({ device: "abc" });
+    const mockSession = { empty: true };
+
+    mockedDb.collection = jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn().mockResolvedValue(mockSession),
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/auth/me",
+      cookies: { token: "token123" },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: "Session revoked or not found" });
   });
 });
