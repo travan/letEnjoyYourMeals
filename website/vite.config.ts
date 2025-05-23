@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    base: "/letEnjoyYourMeals/",
+    base: "/",
     build: {
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
