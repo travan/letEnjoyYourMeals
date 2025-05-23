@@ -15,10 +15,7 @@ interface AuthState {
 }
 
 interface AuthActions {
-  authenticate: (location: {
-    latitude: number;
-    longitude: number;
-  }) => Promise<void>;
+  authenticate: (location: { latitude: number; longitude: number }) => Promise<void>;
   loadSession: () => Promise<void>;
   logoutUser: () => Promise<void>;
 }

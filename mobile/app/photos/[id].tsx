@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,17 +17,22 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
-import { categories } from "@shared/data/constants/categories";
+
 import { photoDetails } from "../styles/photoDetails";
 import CameraComponent from "../components/CameraComponent";
-import { useRestaurantContext } from "../contexts/RestaurantContext";
 import { CommentModal } from "../components/CommentModal";
-import { Comment } from "@shared/data";
+
+//store
+import {
+  useRestaurantsList,
+  useRestaurantStore,
+} from "../store/restaurantStore";
+import { useCommentsList, useCommentStore } from "../store/commentStore";
+import { useCategoryStore } from "../store/categoryStore";
+import { Comment, Restaurant } from "@shared/data";
 
 export default function PhotoDetails() {
   const params = useLocalSearchParams();
-  const { restaurants, comments } = useRestaurantContext();
-
   const [showMap, setShowMap] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [coordinates, setCoordinates] = useState<{
@@ -40,13 +45,27 @@ export default function PhotoDetails() {
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
 
+  //store
+  const restaurants = useRestaurantsList();
+  const updateRestaurant = useRestaurantStore(
+    (state) => state.updateRestaurant
+  );
+
+  const fetchComments = useCommentStore((state) => state.fetchComments);
+  const postComment = useCommentStore((state) => state.postComment);
+  const { categories } = useCategoryStore();
+
   const restaurant = restaurants.filter(
     (restaurant) => restaurant.id === params.id
   )[0];
 
-  const instanceComments = comments.filter(
-    (comment) => comment.restaurantId === params.id
-  );
+  useEffect(() => {
+    if (restaurant.id) {
+      fetchComments(restaurant.id);
+    }
+  }, [fetchComments, restaurant.id]);
+
+  const commentsByRestaurant = useCommentsList(restaurant.id);
 
   // Parse image data
   const imageArray = restaurant.image || [];
@@ -131,11 +150,11 @@ export default function PhotoDetails() {
   };
 
   const getRating = () => {
-    const totalRating = instanceComments.reduce(
+    const totalRating = commentsByRestaurant.reduce(
       (sum, comment) => sum + comment.rating,
       0
     );
-    const averageRating = totalRating / instanceComments.length;
+    const averageRating = totalRating / commentsByRestaurant.length;
     return averageRating.toFixed(1);
   };
 
@@ -186,8 +205,19 @@ export default function PhotoDetails() {
 
     restaurant.image = newImageArray;
 
+    updateRestaurant(restaurant.id, restaurant);
+
     setShowCamera(false);
   };
+
+  const commentSetter = useCallback(
+    (value: React.SetStateAction<Comment[]>) => {
+      const newComments =
+        typeof value === "function" ? value(commentsByRestaurant) : value;
+      postComment(newComments[0]);
+    },
+    [commentsByRestaurant, postComment]
+  );
 
   const handleBack = () => {
     router.back();
@@ -381,7 +411,7 @@ export default function PhotoDetails() {
           >
             <Ionicons name="chatbubble-outline" size={24} color="#6B7280" />
             <Text className={photoDetails.actionText}>
-              {instanceComments.length}
+              {commentsByRestaurant.length}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity className={photoDetails.actionButton}>
@@ -462,8 +492,9 @@ export default function PhotoDetails() {
       <CommentModal
         visible={showComments}
         onClose={() => setShowComments(false)}
-        listComments={instanceComments}
+        listComments={commentsByRestaurant}
         restaurantId={params.id as string}
+        setComments={commentSetter}
       />
 
       <Modal

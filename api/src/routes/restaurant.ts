@@ -3,7 +3,6 @@ import { db } from "../utils/firebase";
 import { Restaurant } from "@shared/data/index";
 
 export async function restaurantRoutes(fastify: FastifyInstance) {
-  // GET all restaurants
   fastify.get("/restaurants", async () => {
     const snapshot = await db.collection("restaurants").get();
     return snapshot.docs.map((doc) => ({
@@ -12,7 +11,6 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
     })) as Restaurant[];
   });
 
-  // GET one restaurant
   fastify.get("/restaurants/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const doc = await db.collection("restaurants").doc(id).get();
@@ -24,7 +22,6 @@ export async function restaurantRoutes(fastify: FastifyInstance) {
     return { id: doc.id, ...doc.data() } as Restaurant;
   });
 
-  // CREATE new restaurant
   fastify.post("/restaurants", async (request, reply) => {
     const data = request.body as Restaurant | Restaurant[];
 

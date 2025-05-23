@@ -8,17 +8,19 @@ import LoadingScreen from "./components/LoadingScreen";
 function App() {
   const { loadSession, authenticate, isAuthenticated } = useAuthStore();
   const calledRef = useRef(false);
-  const getLocation = (): Promise<{ lat: number; lng: number }> => {
+  const getLocation = (): Promise<{ latitude: number; longitude: number }> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        return reject(new Error("Geolocation is not supported by this browser."));
+        return reject(
+          new Error("Geolocation is not supported by this browser.")
+        );
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
           });
         },
         (error) => {
@@ -32,7 +34,7 @@ function App() {
     const autoLogin = async () => {
       if (calledRef.current) return;
       calledRef.current = true;
-  
+
       try {
         await loadSession();
       } catch {
@@ -44,20 +46,19 @@ function App() {
         }
       }
     };
-  
+
     autoLogin();
   }, [loadSession, authenticate]);
 
-
-  if(isAuthenticated){
+  if (isAuthenticated) {
     return (
       <Routes>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/restaurant/:id" element={<RestaurantItem />} />
       </Routes>
     );
-  }else{
-    return <LoadingScreen />
+  } else {
+    return <LoadingScreen />;
   }
 }
 

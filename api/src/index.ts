@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import { apiRoutes } from "./routes";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 const app = Fastify();
@@ -18,7 +18,7 @@ app.register(fastifyCookie, {
 
 app.register(apiRoutes, { prefix: "/api" });
 
-app.listen({ port: 3000 }, (err, address) => {
+app.listen({ port: 3000, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);

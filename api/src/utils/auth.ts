@@ -63,6 +63,7 @@ export function getClientInfo(request: FastifyRequest) {
     request.headers["x-forwarded-for"]?.toString().split(",")[0] || request.ip;
   const userAgent = request.headers["user-agent"] || "unknown";
   const fingerprintRaw = `${ip}|${userAgent}`;
+
   const deviceHash = crypto
     .createHash("sha256")
     .update(fingerprintRaw)
@@ -87,7 +88,7 @@ export async function storeDevice(
   await db
     .collection("devices")
     .doc(deviceHash)
-    .set({ location, ip, updatedAt: Date.now() });
+    .set({ deviceHash, location, ip, updatedAt: Date.now() });
 }
 
 export async function saveSession(userId: string, data: SessionData) {
@@ -105,7 +106,8 @@ export async function saveSession(userId: string, data: SessionData) {
 
 function haversineDistance(coord1: GeoPoint, coord2: GeoPoint): number {
   const toRad = (x: number) => (x * Math.PI) / 180;
-  const R = 6371; // Earth radius in km
+  const R = 6371;
+  
   const dLat = toRad(coord2.latitude - coord1.latitude);
   const dLon = toRad(coord2.longitude - coord1.longitude);
   const a =
@@ -113,6 +115,7 @@ function haversineDistance(coord1: GeoPoint, coord2: GeoPoint): number {
     Math.cos(toRad(coord1.latitude)) *
       Math.cos(toRad(coord2.latitude)) *
       Math.sin(dLon / 2) ** 2;
+
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -123,11 +126,12 @@ export async function verifyLocation(
   thresholdKm = 100
 ): Promise<boolean> {
   const doc = await db.collection("devices").doc(deviceHash).get();
-  if (!doc.exists) return true; // Thiết bị mới => chấp nhận
+  if (!doc.exists) return true;
 
   const prev = doc.data();
   const sameIP = prev?.ip === ip;
   const prevLocation = prev?.location as GeoPoint;
   const distance = haversineDistance(prevLocation, location);
+
   return sameIP && distance <= thresholdKm;
 }

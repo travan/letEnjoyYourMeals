@@ -12,15 +12,15 @@ import {
 import { Camera } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  Restaurant,
-  featuredRestaurants as initialRestaurants,
-  categories,
-  SampleComments,
-} from "@shared/data/index";
+import { Category, Restaurant } from "@shared/data/index";
 import { indexStyles } from "./styles/index";
 import { RestaurantCard } from "./components/RestaurantCard";
-import { useRestaurantContext } from "./contexts/RestaurantContext";
+import {
+  useRestaurantsList,
+  useRestaurantStore,
+} from "./store/restaurantStore";
+import { useCategoryStore } from "./store/categoryStore";
+import SyncIndicator from "./components/SyncIndicator";
 
 type SearchParams = {
   image: string;
@@ -43,8 +43,17 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [selectedTab, setSelectedTab] = useState("all");
-  const { restaurants, setRestaurants, comments, setComments } =
-    useRestaurantContext();
+  const restaurants = useRestaurantsList();
+  const fetchRestaurants = useRestaurantStore(
+    (state: { fetchRestaurants: any }) => state.fetchRestaurants
+  );
+  const setRestaurants = useRestaurantStore(
+    (state: { setRestaurants: any }) => state.setRestaurants
+  );
+  const addRestaurant = useRestaurantStore(
+    (state: { addRestaurant: any }) => state.addRestaurant
+  );
+  const { categories, fetchCategories } = useCategoryStore();
   const [highlightedRestaurants, setHighlightedRestaurants] = useState<
     Set<string>
   >(new Set());
@@ -53,9 +62,19 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter restaurants based on search query and selected category
+  // Fetch data on component mount
+  useEffect(() => {
+    if (restaurants.length === 0) fetchRestaurants();
+    if (categories.length === 0) fetchCategories();
+  }, [
+    fetchRestaurants,
+    fetchCategories,
+    restaurants.length,
+    categories.length,
+  ]);
+
   const filteredRestaurants = useMemo(() => {
-    return restaurants.filter((restaurant) => {
+    return restaurants.filter((restaurant: Restaurant) => {
       const matchesSearch =
         restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (restaurant.location?.toLowerCase() || "").includes(
@@ -71,43 +90,40 @@ export default function HomeScreen() {
   }, [restaurants, searchQuery, selectedTab]);
 
   useEffect(() => {
-    setComments(SampleComments);
-  }, []);
-
-  useEffect(() => {
     if (searchParams.action === "addPhoto") {
       if (
         searchParams.photoUri &&
         !restaurants.some(
-            (restaurant) =>
-              restaurant.name === searchParams.name &&
-              restaurant.location === searchParams.location &&
-              restaurant.coordinates?.latitude ===
-                parseFloat(searchParams.latitude || "0") &&
-              restaurant.coordinates?.longitude ===
-                parseFloat(searchParams.longitude || "0")
-          )
-        ) {
-          try {
-            const newRestaurant: Restaurant = {
-              id: Date.now().toString(),
-              name: searchParams.name || "New Restaurant",
-              image: [searchParams.photoUri],
-              time: "Just now",
-              rating: parseFloat(searchParams.rating || "4.5"),
-              location: searchParams.location || "Location not available",
-              coordinates: {
-                latitude: parseFloat(searchParams.latitude || "0"),
-                longitude: parseFloat(searchParams.longitude || "0"),
-              },
-              category: searchParams.category || "Restaurant",
-              description:
-                searchParams.description || "A new restaurant added by you",
-              price: searchParams.price || "$$",
-              isHighlighted: false,
-            };
-            setRestaurants((prev) => [newRestaurant, ...prev]);
-          } catch (error) {
+          (restaurant: Restaurant) =>
+            restaurant.name === searchParams.name &&
+            restaurant.location === searchParams.location &&
+            restaurant.coordinates?.latitude ===
+              parseFloat(searchParams.latitude || "0") &&
+            restaurant.coordinates?.longitude ===
+              parseFloat(searchParams.longitude || "0")
+        )
+      ) {
+        try {
+          const newRestaurant: Restaurant = {
+            id: Date.now().toString(),
+            name: searchParams.name || "New Restaurant",
+            image: [searchParams.photoUri],
+            time: "Just now",
+            rating: parseFloat(searchParams.rating || "4.5"),
+            location: searchParams.location || "Location not available",
+            coordinates: {
+              latitude: parseFloat(searchParams.latitude || "0"),
+              longitude: parseFloat(searchParams.longitude || "0"),
+            },
+            category: searchParams.category || "Restaurant",
+            description:
+              searchParams.description || "A new restaurant added by you",
+            price: searchParams.price || "$$",
+            isHighlighted: false,
+          };
+          setRestaurants((prev: any) => [newRestaurant, ...prev]);
+          addRestaurant(newRestaurant);
+        } catch (error) {
           console.error("Error adding new restaurant:", error);
         }
       }
@@ -124,18 +140,6 @@ export default function HomeScreen() {
   const handlePhotoPress = (image: string) => {
     setPreviewImage(image);
     setShowPreview(true);
-  };
-
-  const handleSearch = (query: string) => {
-    const filtered = initialRestaurants.filter((restaurant) => {
-      const searchLower = query.toLowerCase();
-      return (
-        restaurant.name.toLowerCase().includes(searchLower) ||
-        (restaurant.location?.toLowerCase() || "").includes(searchLower) ||
-        (restaurant.description?.toLowerCase() || "").includes(searchLower)
-      );
-    });
-    setRestaurants(filtered);
   };
 
   const handleHighlight = (restaurantId: string) => {
@@ -160,12 +164,12 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setRestaurants(initialRestaurants);
+    if (restaurants.length > 0) {
       setLoading(false);
-    }, 1000);
-  }, []);
+    } else {
+      setLoading(true);
+    }
+  }, [restaurants]);
 
   if (loading) {
     return (
@@ -201,7 +205,7 @@ export default function HomeScreen() {
       <View className={indexStyles.header}>
         <View className={indexStyles.headerTop}>
           <Text className={indexStyles.headerTitle}>
-            Let's Enjoin Your Food
+            Let's Enjoy Your Food
           </Text>
           <View className={indexStyles.headerButtons}>
             <TouchableOpacity
@@ -234,7 +238,7 @@ export default function HomeScreen() {
           value={searchQuery}
           onChangeText={(text) => {
             setSearchQuery(text);
-            handleSearch(text);
+            // handleSearch(text);
           }}
           returnKeyType="search"
           autoCapitalize="none"
@@ -250,7 +254,7 @@ export default function HomeScreen() {
       >
         <View className={indexStyles.categoriesContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {categories.map((category) => (
+            {categories.map((category: Category) => (
               <TouchableOpacity
                 key={category.id}
                 className={indexStyles.categoryItem}
@@ -290,7 +294,8 @@ export default function HomeScreen() {
             {searchQuery ? "Search Results" : "Popular Restaurants"}
           </Text>
           <View className={indexStyles.restaurantsGrid}>
-            {filteredRestaurants.map((restaurant) => (
+            <SyncIndicator />
+            {filteredRestaurants.map((restaurant: Restaurant) => (
               <RestaurantCard
                 key={restaurant.id}
                 restaurant={restaurant}

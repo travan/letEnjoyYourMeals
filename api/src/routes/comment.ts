@@ -3,19 +3,19 @@ import { db } from "../utils/firebase";
 import { Comment } from "@shared/data/index";
 
 export async function commentRoutes(fastify: FastifyInstance) {
-  // GET all comments (optionally filter by restaurantId)
   fastify.get("/comments", async (request) => {
     const restaurantId = (request.query as any).restaurantId;
-
     const collection = db.collection("comments");
     const snapshot = restaurantId
       ? await collection.where("restaurantId", "==", restaurantId).get()
       : await collection.get();
 
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Comment[];
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Comment[];
   });
 
-  // GET comment by ID
   fastify.get("/comments/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const doc = await db.collection("comments").doc(id).get();
@@ -27,30 +27,30 @@ export async function commentRoutes(fastify: FastifyInstance) {
     return { id: doc.id, ...doc.data() } as Comment;
   });
 
-  // CREATE comment
   fastify.post("/comments", async (request, reply) => {
     const data = request.body as Comment[];
-  const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-  const batch = db.batch();
+    const batch = db.batch();
 
-  for (const comment of data) {
-    const docRef = db.collection("comments").doc(comment.id);
-    batch.set(docRef, {
-      ...comment,
-      createdAt: now,
-      updatedAt: now,
-      likes: comment.likes || 0,
-      replies: comment.replies || [],
-    });
-  }
+    for (const comment of data) {
+      const docRef = db.collection("comments").doc(comment.id);
+      batch.set(docRef, {
+        ...comment,
+        createdAt: now,
+        updatedAt: now,
+        likes: comment.likes || 0,
+        replies: comment.replies || [],
+      });
+    }
 
-  await batch.commit();
+    await batch.commit();
 
-  return reply.code(201).send({ message: "Multiple comments created", count: data.length });
+    return reply
+      .code(201)
+      .send({ message: "Multiple comments created", count: data.length });
   });
 
-  // UPDATE comment
   fastify.put("/comments/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     const data = request.body as Partial<Comment>;
@@ -60,7 +60,6 @@ export async function commentRoutes(fastify: FastifyInstance) {
     return reply.send({ message: "Comment updated" });
   });
 
-  // DELETE comment
   fastify.delete("/comments/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     await db.collection("comments").doc(id).delete();

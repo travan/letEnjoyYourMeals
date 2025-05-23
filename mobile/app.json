@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LetEnjoinYourFood",
-    "slug": "LetEnjoinYourFood",
+    "name": "Enjoyyourmeal",
+    "slug": "Enjoyyourmeal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,9 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.travan.LetEnjoinYourFood",
+      "bundleIdentifier": "com.travan.Enjoyyourmeal",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to authenticate your device."
       }
     },
     "android": {
@@ -22,9 +23,10 @@
       },
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION"
       ],
-      "package": "com.travan.LetEnjoinYourFood"
+      "package": "com.travan.EnjoyYourFood"
     },
     "web": {
       "bundler": "metro",
@@ -60,7 +62,8 @@
       },
       "eas": {
         "projectId": "9370cb76-afeb-4173-b1b6-5b1345903a07"
-      }
+      },
+      "API_URL": "http://192.168.22.70:3000"
     },
     "owner": "travan"
   }

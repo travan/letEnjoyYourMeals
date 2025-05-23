@@ -217,7 +217,7 @@ const HomePage: React.FC = () => {
       {/* Header section */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-gray-800">
-          Let's Enjoin Your Meals
+          Let's Enjoy Your Meals
         </h1>
         <div className="flex gap-2">
           <button className="bg-gray-100 p-2 rounded-full">

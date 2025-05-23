@@ -17,11 +17,13 @@ export const CommentModal = ({
   onClose,
   listComments,
   restaurantId,
+  setComments,
 }: {
   visible: boolean;
   onClose: () => void;
   listComments: Comment[];
   restaurantId: string;
+  setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
 }) => {
   const [newComment, setNewComment] = useState("");
   const [rating, setRating] = useState(0);
@@ -32,13 +34,14 @@ export const CommentModal = ({
         id: Date.now().toString(),
         userId: "currentUser",
         restaurantId: restaurantId as string,
-        rating: rating,
+        rating: rating || 0,
         text: newComment.trim(),
         likes: 0,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       listComments.unshift(comment);
+      setComments([comment, ...listComments]);
       setNewComment("");
       setRating(0);
       onClose();

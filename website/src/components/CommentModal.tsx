@@ -52,10 +52,7 @@ export default function CommentModal({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        emojiRef.current &&
-        !emojiRef.current.contains(e.target as Node)
-      ) {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
         setShowEmojiPicker(false);
       }
     };
@@ -71,7 +68,7 @@ export default function CommentModal({
       id: Date.now().toString(),
       userId: "Anonymous",
       restaurantId,
-      rating,
+      rating: rating || 0,
       text: newComment,
       likes: 0,
       createdAt: new Date().toISOString(),
