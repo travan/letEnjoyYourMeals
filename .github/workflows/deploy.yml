@@ -79,24 +79,10 @@ jobs:
       # - name: Trigger iOS Build
       #   id: build_ios
       #   run: |
-      #     BUILD_ID=$(eas build --platform ios --profile production --non-interactive --json | jq -r '.id')
-      #     echo "IOS_BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
-      #     echo "Waiting for iOS build to complete..."
-      #     while true; do
-      #       STATUS_JSON=$(eas build:status --non-interactive --json --build-id $BUILD_ID)
-      #       STATUS=$(echo "$STATUS_JSON" | jq -r '.status')
-      #       echo "Current status: $STATUS"
-      #       if [ "$STATUS" = "finished" ]; then
-      #         echo "$STATUS_JSON" > ios-build.json
-      #         IOS_URL=$(echo "$STATUS_JSON" | jq -r '.artifacts.buildUrl')
-      #         echo "IOS_URL=$IOS_URL" >> $GITHUB_ENV
-      #         break
-      #       elif [ "$STATUS" = "errored" ]; then
-      #         echo "iOS build failed"
-      #         exit 1
-      #       fi
-      #       sleep 10
-      #     done
+      #     BUILD_RESULT=$(eas build --platform ios --profile production --non-interactive --json --wait)
+      #     echo "$BUILD_RESULT" > ios-build.json
+      #     IOS_URL=$(echo "$BUILD_RESULT" | jq -r '.[0].artifacts.buildUrl')
+      #     echo "IOS_URL=$IOS_URL" >> $GITHUB_ENV
 
       # Download artifacts
       - name: Download Android APK
