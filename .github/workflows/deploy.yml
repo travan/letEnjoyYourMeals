@@ -72,7 +72,7 @@ jobs:
         run: |
           BUILD_RESULT=$(eas build --platform android --profile preview --non-interactive --json --wait)
           echo "$BUILD_RESULT" > android-build.json
-          ANDROID_URL=$(echo "$BUILD_RESULT" | jq -r '.artifacts.buildUrl')
+          ANDROID_URL=$(echo "$BUILD_RESULT" | jq -r '.[0].artifacts.buildUrl')
           echo "ANDROID_URL=$ANDROID_URL" >> $GITHUB_ENV
 
       # iOS build
