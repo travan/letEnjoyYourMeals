@@ -63,6 +63,9 @@ jobs:
       - name: Set Expo Token
         run: echo "EXPO_TOKEN=${{ secrets.EXPO_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Expo login (via token)
+        run: eas whoami || eas login --token $EXPO_TOKEN
+
       # Android build
       - name: Trigger Android Build (APK)
         id: build_android
