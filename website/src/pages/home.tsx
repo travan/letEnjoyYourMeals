@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Restaurant, Category } from "../../../shared/data/index";
+import { Restaurant, Category } from "@shared/data/index";
 import { RestaurantCard } from "../components/RestaurantCard";
 import { Bell, Search, X } from "lucide-react";
 import clsx from "clsx";

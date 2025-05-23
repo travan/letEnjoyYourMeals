@@ -28,7 +28,7 @@ import {
 } from "../store/restaurantStore";
 import { useCommentsList, useCommentStore } from "../store/commentStore";
 import { useCategoryStore } from "../store/categoryStore";
-import { Comment, Restaurant } from "../../../shared/data/index";
+import { Comment, Restaurant } from "@shared/data/index";
 
 interface Hours {
   open: string;

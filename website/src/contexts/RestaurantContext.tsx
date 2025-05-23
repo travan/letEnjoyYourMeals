@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Restaurant, featuredRestaurants as initialData, SampleComments as initialComments, Comment } from "../../../shared/data/index";
+import { Restaurant, featuredRestaurants as initialData, SampleComments as initialComments, Comment } from "@shared/data/index";
 
 type RestaurantContextType = {
   restaurants: Restaurant[];
