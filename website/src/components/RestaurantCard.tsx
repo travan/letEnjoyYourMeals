@@ -1,5 +1,5 @@
 import React from "react";
-import { Restaurant } from "../../../shared/data/index";
+import { Restaurant } from "@shared/data/index";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 
 interface RestaurantCardProps {
