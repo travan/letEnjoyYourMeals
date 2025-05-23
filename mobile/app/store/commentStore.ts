@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { devtools } from "zustand/middleware";
-import { Comment } from "../../../shared/data/index";
+import { Comment } from "@shared/data/index";
 import { updateQueue } from "../services/queueService";
 import { API_URL } from "../../apiConfig";
 

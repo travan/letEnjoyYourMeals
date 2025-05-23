@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Category } from "../../../shared/data/index";
+import { Category } from "@shared/data/index";
 import { API_URL } from "../../apiConfig";
 
 interface CategoryState {
