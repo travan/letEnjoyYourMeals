@@ -1,4 +1,5 @@
 import { debounce } from "lodash";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface QueueItem {
   type: "restaurant" | "comment";
@@ -87,7 +88,7 @@ class UpdateQueue {
 
     switch (action) {
       case "add":
-        await fetch("/api/restaurants", {
+        await fetch(`${API_URL}/api/restaurants`, {
           method: "POST",
           headers,
           body: JSON.stringify(data),
@@ -97,7 +98,7 @@ class UpdateQueue {
 
       case "update":
         if (!id) throw new Error("ID is required for update");
-        await fetch(`/api/restaurants/${id}`, {
+        await fetch(`${API_URL}/api/restaurants/${id}`, {
           method: "PUT",
           headers,
           body: JSON.stringify(data),
@@ -107,7 +108,7 @@ class UpdateQueue {
 
       case "delete":
         if (!id) throw new Error("ID is required for delete");
-        await fetch(`/api/restaurants/${id}`, {
+        await fetch(`${API_URL}/api/restaurants/${id}`, {
           method: "DELETE",
           headers,
           credentials: "include",
@@ -126,7 +127,7 @@ class UpdateQueue {
 
     switch (action) {
       case "add":
-        await fetch("/api/comments", {
+        await fetch(`${API_URL}/api/comments`, {
           method: "POST",
           headers,
           body: JSON.stringify(data),
@@ -136,7 +137,7 @@ class UpdateQueue {
 
       case "update":
         if (!id) throw new Error("ID is required for update");
-        await fetch(`/api/comments/${id}`, {
+        await fetch(`${API_URL}/api/comments/${id}`, {
           method: "PUT",
           headers,
           body: JSON.stringify(data),
@@ -146,7 +147,7 @@ class UpdateQueue {
 
       case "delete":
         if (!id) throw new Error("ID is required for delete");
-        await fetch(`/api/comments/${id}`, {
+        await fetch(`${API_URL}/api/comments/${id}`, {
           method: "DELETE",
           headers,
           credentials: "include",

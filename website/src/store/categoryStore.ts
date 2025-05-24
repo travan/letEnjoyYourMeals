@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Category } from "@shared/data/index";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface CategoryState {
   categories: Category[];
@@ -36,9 +37,9 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     })),
 
   fetchCategories: async () => {
-    if (get().fetched) return; // ✅ Không fetch lại nếu đã có
+    if (get().fetched) return;
     try {
-      const res = await fetch("/api/categories", {
+      const res = await fetch(`${API_URL}/api/categories`, {
         method: "GET",
         credentials: "include",
       });

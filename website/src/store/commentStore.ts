@@ -3,6 +3,7 @@ import { immer } from "zustand/middleware/immer";
 import { devtools } from "zustand/middleware";
 import { Comment } from "@shared/data/index";
 import { updateQueue } from "../services/queueService";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface CommentState {
   comments: Record<string, Comment>;
@@ -157,7 +158,7 @@ export const useCommentStore = create<CommentStore>()(
 
         try {
           const res = await fetch(
-            `/api/comments?restaurantId=${restaurantId}`,
+            `${API_URL}/api/comments?restaurantId=${restaurantId}`,
             {
               method: "GET",
               credentials: "include",

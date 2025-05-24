@@ -3,6 +3,7 @@ import { immer } from "zustand/middleware/immer";
 import { devtools } from "zustand/middleware";
 import { Restaurant } from "@shared/data/index";
 import { updateQueue } from "../services/queueService";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface RestaurantState {
   restaurants: Record<string, Restaurant>;
@@ -136,7 +137,7 @@ export const useRestaurantStore = create<RestaurantStore>()(
         });
 
         try {
-          const res = await fetch("/api/restaurants", {
+          const res = await fetch(`${API_URL}/api/restaurants`, {
             method: "GET",
             credentials: "include",
           });

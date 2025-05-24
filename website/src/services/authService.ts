@@ -1,5 +1,7 @@
+const API_URL = import.meta.env.VITE_API_URL;
+
 export async function getCaptcha() {
-  const res = await fetch("/api/auth/captcha");
+  const res = await fetch(`${API_URL}/api/auth/captcha`);
   return res.json();
 }
 
@@ -11,7 +13,7 @@ export async function login(
     longitude: number;
   }
 ) {
-  const res = await fetch("/api/auth", {
+  const res = await fetch(`${API_URL}/api/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ captchaId, captchaToken, location }),
@@ -24,7 +26,7 @@ export async function login(
 }
 
 export async function getCurrentSession() {
-  const res = await fetch("/api/auth/me", {
+  const res = await fetch(`${API_URL}/api/auth/me`, {
     credentials: "include",
   });
   if (!res.ok) {
@@ -35,7 +37,7 @@ export async function getCurrentSession() {
 }
 
 export async function logout() {
-  await fetch("/api/auth/revoke", {
+  await fetch(`${API_URL}/api/auth/revoke`, {
     method: "POST",
     credentials: "include",
   });
