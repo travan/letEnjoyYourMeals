@@ -1,7 +1,13 @@
 import { cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import admin from 'firebase-admin';
-import serviceAccount from './serviceAccountKey.json';
+
+const serviceAccountBase64 = process.env.FIREBASE_KEY_B64
+if (!serviceAccountBase64) throw new Error('Missing FIREBASE_KEY_B64')
+
+const serviceAccount = JSON.parse(
+  Buffer.from(serviceAccountBase64, 'base64').toString('utf-8')
+)
 
 admin.initializeApp({
   credential: cert(serviceAccount as admin.ServiceAccount),
