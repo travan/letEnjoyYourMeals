@@ -9,4 +9,4 @@ WORKDIR /app/api
 RUN npm install
 RUN npm run build
 
-CMD ["node", "dist/src/index.js"]
+CMD ["node", "dist/api/src/index.js"]
