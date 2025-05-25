@@ -50,16 +50,18 @@ function App() {
     autoLogin();
   }, [loadSession, authenticate]);
 
-  if (isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/restaurant/:id" element={<RestaurantItem />} />
-      </Routes>
-    );
-  } else {
-    return <LoadingScreen />;
-  }
+  return (
+    <Routes>
+      {isAuthenticated ? (
+        <>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/restaurant/:id" element={<RestaurantItem />} />
+        </>
+      ) : (
+        <Route path="*" element={<LoadingScreen />} />
+      )}
+    </Routes>
+  );
 }
 
 export default App;
