@@ -60,8 +60,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     reply.setCookie("token", token, {
       path: "/",
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production" ? true : false,
       maxAge: 60 * 60 * 24,
     });
 
