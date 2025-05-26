@@ -176,41 +176,41 @@ function useUserLocation() {
 }
 
 //filter init restaurant
-interface UserLocation {
-  latitude: number | null;
-  longitude: number | null;
-  location: string | null;
-}
+// interface UserLocation {
+//   latitude: number | null;
+//   longitude: number | null;
+//   location: string | null;
+// }
 
-function deg2rad(deg: number): number {
-  return deg * (Math.PI / 180);
-}
+// function deg2rad(deg: number): number {
+//   return deg * (Math.PI / 180);
+// }
 
-function getDistanceFromLatLonInKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+// function getDistanceFromLatLonInKm(
+//   lat1: number,
+//   lon1: number,
+//   lat2: number,
+//   lon2: number
+// ): number {
+//   const R = 6371; // km
+//   const dLat = deg2rad(lat2 - lat1);
+//   const dLon = deg2rad(lon2 - lon1);
+//   const a =
+//     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+//     Math.cos(deg2rad(lat1)) *
+//       Math.cos(deg2rad(lat2)) *
+//       Math.sin(dLon / 2) *
+//       Math.sin(dLon / 2);
+//   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+//   return R * c;
+// }
 
 function filterRestaurants(
   restaurants: Restaurant[],
   searchQuery: string,
   selectedCategory: string,
-  userLocation: UserLocation,
-  maxDistanceKm: number | null = 10
+  // userLocation: UserLocation,
+  // maxDistanceKm: number | null = 10
 ): Restaurant[] {
   const q = searchQuery.toLowerCase().trim();
 
@@ -284,10 +284,10 @@ const HomePage: React.FC = () => {
       restaurants,
       searchQuery,
       selectedTab,
-      userLocation,
-      10
+      // userLocation,
+      // 10
     );
-  }, [restaurants, searchQuery, selectedTab, userLocation]);
+  }, [restaurants, searchQuery, selectedTab]);
 
   // Handle new restaurant from URL params
   useHandleAddPhotoFromUrl(restaurants, setRestaurants);
