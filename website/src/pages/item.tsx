@@ -15,6 +15,7 @@ import {
   Upload,
 } from "lucide-react";
 import * as Ionicons from "react-icons/io5";
+import toast from "react-hot-toast";
 
 // Components
 import MapView from "../components/MapComponents";
@@ -22,13 +23,11 @@ import ImageSlider from "../components/SlideImages";
 import CommentModal from "../components/CommentModal";
 
 // Store
-import {
-  useRestaurantsList,
-  useRestaurantStore,
-} from "../store/restaurantStore";
+import { useRestaurantsList } from "../store/restaurantStore";
 import { useCommentsList, useCommentStore } from "../store/commentStore";
 import { useCategoryStore } from "../store/categoryStore";
 import { Comment, Restaurant } from "@shared/data/index";
+import { useUploadImageStore } from "../store/uploadImageStore";
 
 interface Hours {
   open: string;
@@ -78,6 +77,7 @@ interface FeaturesSectionProps {
 
 interface ActionButtonsProps {
   commentsCount: number;
+  uploading: boolean;
   onShowComments: () => void;
   onShare: () => Promise<void>;
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -217,6 +217,7 @@ const FeaturesSection: React.FC<FeaturesSectionProps> = ({ features }) =>
 // Action buttons section
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   commentsCount,
+  uploading,
   onShowComments,
   onShare,
   onImageUpload,
@@ -231,13 +232,19 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
     <button className="flex items-center gap-1" onClick={onShare}>
       <Share2 size={20} /> Share
     </button>
-    <label className="flex items-center gap-1 cursor-pointer">
-      <Upload size={20} /> Upload
+    <label
+      className={`flex items-center gap-1 cursor-pointer transition-opacity ${
+        uploading ? "opacity-50 pointer-events-none" : ""
+      }`}
+    >
+      <Upload size={20} />
+      Upload
       <input
         type="file"
         accept="image/*"
         onChange={onImageUpload}
         className="hidden"
+        disabled={uploading}
       />
     </label>
   </div>
@@ -258,14 +265,13 @@ const RestaurantItem: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const restaurants = useRestaurantsList();
-  const updateRestaurant = useRestaurantStore(
-    (state) => state.updateRestaurant
-  );
   const commentsByRestaurant = useCommentsList(id!);
 
   const fetchComments = useCommentStore((state) => state.fetchComments);
   const postComment = useCommentStore((state) => state.postComment);
   const { categories } = useCategoryStore();
+
+  const { uploadImage, uploading } = useUploadImageStore();
 
   // All hooks at the top
   const [showFullImage, setShowFullImage] = useState<boolean>(false);
@@ -281,19 +287,16 @@ const RestaurantItem: React.FC = () => {
     return id && commentsByRestaurant ? commentsByRestaurant : [];
   }, [commentsByRestaurant, id]);
 
-  // Early return if restaurant not found
   if (!restaurant || !id) {
     return <div className="p-4">Not found any restaurant.</div>;
   }
 
-  // Fetch comments when component mounts
   useEffect(() => {
     if (id) {
       fetchComments(id);
     }
   }, [fetchComments, id]);
 
-  // Memoized calculations
   const rating = useMemo(() => {
     const total = comments.reduce((acc, comment) => acc + comment.rating, 0);
     if (comments.length === 0) return restaurant.rating.toFixed(1);
@@ -314,7 +317,6 @@ const RestaurantItem: React.FC = () => {
     return Icon ? { icon: Icon, name: cat.name } : null;
   }, [categories, restaurant.category]);
 
-  // Event handlers using useCallback
   const handleBack = useCallback(() => {
     navigate("/");
   }, [navigate]);
@@ -341,23 +343,32 @@ const RestaurantItem: React.FC = () => {
   }, [restaurant]);
 
   const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > 20) {
+        toast.error("Image size exceeds the maximum limit (20MB).");
+        return;
+      }
+
+      if (fileSizeMB > 5) {
+        toast(
+          "We recommend uploading images under 5MB for better performance."
+        );
+      }
+
+      const toastId = toast.loading("Uploading image...");
       try {
-        const url = URL.createObjectURL(file);
-        const updated = [url, ...restaurant.image];
-        const updatedData = { ...restaurant, image: updated };
-
-        updateRestaurant(restaurant.id, updatedData);
-
-        // setTimeout(() => URL.revokeObjectURL(url), 5000);
+        await uploadImage(file, restaurant.id);
+        toast.success("Upload successful!", { id: toastId });
       } catch (error) {
         console.error("Failed to upload image:", error);
+        toast.error("Upload failed. Please try again.", { id: toastId });
       }
     },
-    [restaurant, updateRestaurant]
+    [restaurant, uploadImage]
   );
 
   const handleShowComments = useCallback(() => {
@@ -412,6 +423,7 @@ const RestaurantItem: React.FC = () => {
 
       <ActionButtons
         commentsCount={comments.length}
+        uploading={uploading}
         onShowComments={handleShowComments}
         onShare={handleShare}
         onImageUpload={handleImageUpload}

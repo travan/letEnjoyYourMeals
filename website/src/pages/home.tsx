@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Restaurant, Category } from "@shared/data/index";
 import { RestaurantCard } from "../components/RestaurantCard";
-import { Bell, Search, X } from "lucide-react";
+import { Bell, Loader2, MapPin, Search, X } from "lucide-react";
 import clsx from "clsx";
 import * as Ionicons from "react-icons/io5";
 import {
@@ -131,6 +131,121 @@ function useHandleAddPhotoFromUrl(
   }, [searchParams, restaurants, setRestaurants]);
 }
 
+function useUserLocation() {
+  const [location, setLocation] = useState("Fetching location...");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocation("Geolocation not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const lat = coords.latitude;
+        const lng = coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`
+          );
+          const data = await res.json();
+          const name =
+            data.display_name ||
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.state ||
+            "Unknown location";
+          setLocation(name);
+        } catch {
+          setLocation("Unable to fetch location");
+        }
+      },
+      (err) => {
+        if (err.code === 1) setLocation("Permission denied");
+        else setLocation("Unable to fetch location");
+      }
+    );
+  }, []);
+
+  return { latitude, longitude, location };
+}
+
+//filter init restaurant
+interface UserLocation {
+  latitude: number | null;
+  longitude: number | null;
+  location: string | null;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
+
+function getDistanceFromLatLonInKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function filterRestaurants(
+  restaurants: Restaurant[],
+  searchQuery: string,
+  selectedCategory: string,
+  userLocation: UserLocation,
+  maxDistanceKm: number | null = 10
+): Restaurant[] {
+  const q = searchQuery.toLowerCase().trim();
+
+  return restaurants.filter((r) => {
+    const matchesSearch =
+      r.name.toLowerCase().includes(q) ||
+      (r.location?.toLowerCase().includes(q) ?? false) ||
+      (r.description?.toLowerCase().includes(q) ?? false);
+
+    if (!matchesSearch) return false;
+
+    if (selectedCategory !== "all" && r.category !== selectedCategory) {
+      return false;
+    }
+
+    // if (
+    //   maxDistanceKm !== null &&
+    //   userLocation.latitude !== null &&
+    //   userLocation.longitude !== null &&
+    //   r.coordinates?.latitude !== undefined &&
+    //   r.coordinates?.longitude !== undefined
+    // ) {
+    //   const distance = getDistanceFromLatLonInKm(
+    //     userLocation.latitude,
+    //     userLocation.longitude,
+    //     r.coordinates.latitude,
+    //     r.coordinates.longitude
+    //   );
+    //   if (distance > maxDistanceKm) return false;
+    // }
+
+    return true;
+  });
+}
+
 // Main component
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -149,6 +264,9 @@ const HomePage: React.FC = () => {
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [previewImage, setPreviewImage] = useState<string>("");
 
+  // get adress of user
+  const userLocation = useUserLocation();
+
   // Fetch data on component mount
   useEffect(() => {
     if (restaurants.length === 0) fetchRestaurants();
@@ -162,17 +280,14 @@ const HomePage: React.FC = () => {
 
   // Filter restaurants based on search and category
   const filteredRestaurants = useMemo(() => {
-    return restaurants.filter((r) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        r.name.toLowerCase().includes(q) ||
-        (r.location?.toLowerCase() || "").includes(q) ||
-        (r.description?.toLowerCase() || "").includes(q);
-      const matchesCategory =
-        selectedTab === "all" || r.category === selectedTab;
-      return matchesSearch && matchesCategory;
-    });
-  }, [restaurants, searchQuery, selectedTab]);
+    return filterRestaurants(
+      restaurants,
+      searchQuery,
+      selectedTab,
+      userLocation,
+      10
+    );
+  }, [restaurants, searchQuery, selectedTab, userLocation]);
 
   // Handle new restaurant from URL params
   useHandleAddPhotoFromUrl(restaurants, setRestaurants);
@@ -217,7 +332,7 @@ const HomePage: React.FC = () => {
       {/* Header section */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold text-gray-800">
-          Let's Enjoy Your Meals
+          Find & Share Tasty Treasures!
         </h1>
         <div className="flex gap-2">
           <button className="bg-gray-100 p-2 rounded-full">
@@ -225,6 +340,21 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Địa chỉ hiện tại với icon */}
+      <p className="text-sm text-gray-500 mb-3 flex items-center gap-1">
+        {userLocation.location === "Fetching location..." ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            Fetching location...
+          </>
+        ) : (
+          <>
+            <MapPin className="w-4 h-4 text-blue-500" />
+            {userLocation.location}
+          </>
+        )}
+      </p>
 
       {/* Search input */}
       <SearchInput value={searchQuery} onChange={setSearchQuery} />

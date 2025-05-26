@@ -4,6 +4,7 @@ import RestaurantItem from "./pages/item";
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "./store/authStore";
 import LoadingScreen from "./components/LoadingScreen";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const { loadSession, authenticate, isAuthenticated } = useAuthStore();
@@ -51,16 +52,19 @@ function App() {
   }, [loadSession, authenticate]);
 
   return (
-    <Routes>
-      {isAuthenticated ? (
-        <>
-          <Route path="/" element={<HomeScreen />} />
-          <Route path="/restaurant/:id" element={<RestaurantItem />} />
-        </>
-      ) : (
-        <Route path="*" element={<LoadingScreen />} />
-      )}
-    </Routes>
+    <>
+      {isAuthenticated && <Toaster position="bottom-right" />}
+      <Routes>
+        {isAuthenticated ? (
+          <>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/restaurant/:id" element={<RestaurantItem />} />
+          </>
+        ) : (
+          <Route path="*" element={<LoadingScreen />} />
+        )}
+      </Routes>
+    </>
   );
 }
 

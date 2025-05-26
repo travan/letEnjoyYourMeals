@@ -205,7 +205,7 @@ export default function HomeScreen() {
       <View className={indexStyles.header}>
         <View className={indexStyles.headerTop}>
           <Text className={indexStyles.headerTitle}>
-            Let's Enjoy Your Food
+            Find & Share Tasty Treasures!
           </Text>
           <View className={indexStyles.headerButtons}>
             <TouchableOpacity

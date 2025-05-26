@@ -10,6 +10,8 @@ const app = Fastify();
 app.register(fastifyCors, {
   origin: ["http://localhost:5173", "https://eym-zeta.vercel.app"],
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 });
 
 app.register(fastifyCookie, {

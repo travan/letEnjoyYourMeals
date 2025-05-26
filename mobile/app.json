@@ -63,7 +63,7 @@
       "eas": {
         "projectId": "dca3c6f7-5c0a-4ad4-8373-5ad27faec6a7"
       },
-      "API_URL": "http://192.168.22.70:3000"
+      "API_URL": "https://letenjoyyourmeals.onrender.com"
     },
     "owner": "travan"
   }
