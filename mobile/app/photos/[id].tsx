@@ -12,24 +12,24 @@ import {
   Share,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
+import * as mime from "react-native-mime-types";
 
 import { photoDetails } from "../styles/photoDetails";
 import CameraComponent from "../components/CameraComponent";
 import { CommentModal } from "../components/CommentModal";
 
 //store
-import {
-  useRestaurantsList,
-  useRestaurantStore,
-} from "../store/restaurantStore";
+import { useRestaurantsList } from "../store/restaurantStore";
 import { useCommentsList, useCommentStore } from "../store/commentStore";
 import { useCategoryStore } from "../store/categoryStore";
 import { Comment, Restaurant } from "@shared/data";
+import { useUploadImageStore } from "../store/uploadImageStore";
 
 export default function PhotoDetails() {
   const params = useLocalSearchParams();
@@ -44,16 +44,15 @@ export default function PhotoDetails() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [modalImageIndex, setModalImageIndex] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
 
   //store
   const restaurants = useRestaurantsList();
-  const updateRestaurant = useRestaurantStore(
-    (state) => state.updateRestaurant
-  );
 
   const fetchComments = useCommentStore((state) => state.fetchComments);
   const postComment = useCommentStore((state) => state.postComment);
   const { categories } = useCategoryStore();
+  const { uploadImage, uploading } = useUploadImageStore();
 
   const restaurant = restaurants.filter(
     (restaurant) => restaurant.id === params.id
@@ -200,14 +199,24 @@ export default function PhotoDetails() {
     setShowFullImage(true);
   };
 
-  const handlePhotoTaken = (photoUri: string) => {
-    const newImageArray = [...imageArray, photoUri];
+  const handlePhotoTaken = async (photoUri: string) => {
+    try {
+      const uri = photoUri;
+      const type = mime.lookup(uri) || "image/jpeg"; // ví dụ: image/jpeg
+      const name = uri.split("/").pop() || "photo.jpg";
 
-    restaurant.image = newImageArray;
+      const file = {
+        uri,
+        type,
+        name,
+      };
 
-    updateRestaurant(restaurant.id, restaurant);
+      await uploadImage(file, restaurant.id, null);
 
-    setShowCamera(false);
+      setShowCamera(false);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+    }
   };
 
   const commentSetter = useCallback(
@@ -223,353 +232,388 @@ export default function PhotoDetails() {
     router.back();
   };
 
+  useEffect(() => {
+    if (uploading) {
+      setShowLoading(true);
+    } else if (showLoading && !uploading) {
+      setShowLoading(false);
+      router.back();
+    }
+  }, [uploading]);
+
+  const renderLoadingScreen = () => (
+    <View className="absolute inset-0 z-50 bg-black bg-opacity-60 justify-center items-center">
+      <ActivityIndicator size="large" color="#ffffff" />
+      <Text className="text-white mt-4 text-lg">Uploading...</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView className={photoDetails.container}>
-      <View className={photoDetails.header}>
-        <TouchableOpacity
-          onPress={handleBack}
-          className={photoDetails.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text className={photoDetails.headerTitle}>Restaurant</Text>
-      </View>
-
-      <View className={photoDetails.mainContent}>
-        <ScrollView
-          className={photoDetails.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="h-72 relative">
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              className="h-full"
-              contentContainerStyle={{ width: `${100 * imageArray.length}%` }}
-              decelerationRate="fast"
-              snapToInterval={Dimensions.get("window").width}
-              snapToAlignment="center"
-            >
-              {imageArray.map((img: string, index: number) => (
-                <TouchableOpacity
-                  key={index}
-                  className="w-full h-full"
-                  style={{
-                    width: Dimensions.get("window").width,
-                    height: "100%",
-                  }}
-                  onPress={handleImagePress}
-                >
-                  <Image
-                    source={{ uri: img }}
-                    className={photoDetails.photo}
-                    resizeMode="cover"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      flex: 1,
-                    }}
-                  />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <View className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded-full">
-              <Text className="text-white text-sm">
-                {currentImageIndex + 1} / {imageArray.length}
-              </Text>
-            </View>
-          </View>
-
-          <View className={photoDetails.detailsContainer}>
-            <Text className={photoDetails.title}>{restaurant.name}</Text>
-
-            <View className={photoDetails.infoRow}>
-              <View className={photoDetails.infoItem}>
-                <Ionicons name="time-outline" size={16} color="#6B7280" />
-                <Text className={photoDetails.infoText}>{restaurant.time}</Text>
-              </View>
-              <View className={photoDetails.infoItem}>
-                <Ionicons name="star" size={16} color="#FBBF24" />
-                <Text className={photoDetails.infoText}>{getRating()}</Text>
-              </View>
-              <View className={photoDetails.infoItem}>
-                <Ionicons name="pricetag-outline" size={16} color="#6B7280" />
-                <Text className={photoDetails.infoText}>
-                  {restaurant.price}
-                </Text>
-              </View>
-            </View>
-
-            <View className={photoDetails.infoRow}>
-              <View className={photoDetails.infoItem}>
-                <Ionicons
-                  name={getCategoryIcon(restaurant.category as string)}
-                  size={16}
-                  color="#6B7280"
-                />
-                <Text className={photoDetails.infoText}>
-                  {getCategoryName(restaurant.category as string)}
-                </Text>
-              </View>
-            </View>
-
-            {restaurant.description && (
-              <View className={photoDetails.categoryDescriptionContainer}>
-                <Text className={photoDetails.categoryDescriptionText}>
-                  {restaurant.description}
-                </Text>
-              </View>
-            )}
-
+      {showLoading ? (
+        renderLoadingScreen()
+      ) : (
+        <>
+          <View className={photoDetails.header}>
             <TouchableOpacity
-              className={photoDetails.locationContainer}
-              onPress={getLocationCoordinates}
+              onPress={handleBack}
+              className={photoDetails.backButton}
             >
-              <Ionicons name="location" size={20} color="#6B7280" />
-              <Text className={photoDetails.locationText}>
-                {restaurant.location || "Location not specified"}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color="#6B7280"
-                className={photoDetails.locationArrow}
-              />
+              <Ionicons name="arrow-back" size={24} color="#000" />
             </TouchableOpacity>
-
-            {restaurant.contact?.phone && (
-              <View className={photoDetails.infoSection}>
-                <Text className={photoDetails.sectionTitle}>Phone</Text>
-                <Text className={photoDetails.sectionText}>
-                  {restaurant.contact.phone}
-                </Text>
-              </View>
-            )}
-
-            {restaurant.contact?.website && (
-              <View className={photoDetails.infoSection}>
-                <Text className={photoDetails.sectionTitle}>Website</Text>
-                <TouchableOpacity
-                  onPress={() =>
-                    Linking.openURL(restaurant.contact?.website as string)
-                  }
+            <Text className={photoDetails.headerTitle}>Restaurant</Text>
+          </View>
+          <View className={photoDetails.mainContent}>
+            <ScrollView
+              className={photoDetails.content}
+              showsVerticalScrollIndicator={false}
+            >
+              <View className="h-72 relative">
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  className="h-full"
+                  contentContainerStyle={{
+                    width: `${100 * imageArray.length}%`,
+                  }}
+                  decelerationRate="fast"
+                  snapToInterval={Dimensions.get("window").width}
+                  snapToAlignment="center"
                 >
-                  <Text
-                    className={`${photoDetails.sectionText} ${photoDetails.linkText}`}
-                  >
-                    {restaurant.contact?.website}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {restaurant.operatingHours && (
-              <View className={photoDetails.infoSection}>
-                <Text className={photoDetails.sectionTitle}>Opening Hours</Text>
-                {Object.entries(restaurant.operatingHours).map(
-                  ([day, hours]) => (
-                    <View key={day} className="flex-row justify-between py-0.5">
-                      <Text className="w-1/2 text-gray-700 capitalize">
-                        {day}
-                      </Text>
-                      <Text className="w-1/2 text-right text-gray-800">{`${hours.open} - ${hours.close}`}</Text>
-                    </View>
-                  )
-                )}
-              </View>
-            )}
-
-            {restaurant.features && (
-              <View className={photoDetails.infoSection}>
-                <Text className={photoDetails.sectionTitle}>Features</Text>
-                <View className={photoDetails.featuresContainer}>
-                  {restaurant.features.map((feature: string, index: number) => (
-                    <View key={index} className={photoDetails.featureItem}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={16}
-                        color="#10B981"
+                  {imageArray.map((img: string, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      className="w-full h-full"
+                      style={{
+                        width: Dimensions.get("window").width,
+                        height: "100%",
+                      }}
+                      onPress={handleImagePress}
+                    >
+                      <Image
+                        source={{ uri: img }}
+                        className={photoDetails.photo}
+                        resizeMode="cover"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          flex: 1,
+                        }}
                       />
-                      <Text className={photoDetails.featureText}>
-                        {feature}
-                      </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
+                </ScrollView>
+                <View className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded-full">
+                  <Text className="text-white text-sm">
+                    {currentImageIndex + 1} / {imageArray.length}
+                  </Text>
                 </View>
               </View>
-            )}
-          </View>
-        </ScrollView>
 
-        <View className={photoDetails.actionsContainer}>
-          <TouchableOpacity
-            className={photoDetails.actionButton}
-            onPress={() => setShowComments(true)}
-          >
-            <Ionicons name="chatbubble-outline" size={24} color="#6B7280" />
-            <Text className={photoDetails.actionText}>
-              {commentsByRestaurant.length}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity className={photoDetails.actionButton}>
-            <Ionicons name="heart-outline" size={24} color="#6B7280" />
-            <Text className={photoDetails.actionText}>Like</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={photoDetails.actionButton}
-            onPress={handleShare}
-          >
-            <Ionicons name="share-outline" size={24} color="#6B7280" />
-            <Text className={photoDetails.actionText}>Share</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={photoDetails.actionButton}
-            onPress={() => setShowCamera(true)}
-          >
-            <Ionicons name="camera-outline" size={24} color="#6B7280" />
-            <Text className={photoDetails.actionText}>Camera</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+              <View className={photoDetails.detailsContainer}>
+                <Text className={photoDetails.title}>{restaurant.name}</Text>
 
-      <Modal
-        visible={showMap}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowMap(false)}
-      >
-        <View className={photoDetails.modalOverlay}>
-          <View className={photoDetails.modalContent}>
-            <View className={photoDetails.modalHeader}>
-              <Text className={photoDetails.modalTitle}>
-                {restaurant.location || "Location"}
-              </Text>
+                <View className={photoDetails.infoRow}>
+                  <View className={photoDetails.infoItem}>
+                    <Ionicons name="time-outline" size={16} color="#6B7280" />
+                    <Text className={photoDetails.infoText}>
+                      {restaurant.time}
+                    </Text>
+                  </View>
+                  <View className={photoDetails.infoItem}>
+                    <Ionicons name="star" size={16} color="#FBBF24" />
+                    <Text className={photoDetails.infoText}>{getRating()}</Text>
+                  </View>
+                  <View className={photoDetails.infoItem}>
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={16}
+                      color="#6B7280"
+                    />
+                    <Text className={photoDetails.infoText}>
+                      {restaurant.price}
+                    </Text>
+                  </View>
+                </View>
+
+                <View className={photoDetails.infoRow}>
+                  <View className={photoDetails.infoItem}>
+                    <Ionicons
+                      name={getCategoryIcon(restaurant.category as string)}
+                      size={16}
+                      color="#6B7280"
+                    />
+                    <Text className={photoDetails.infoText}>
+                      {getCategoryName(restaurant.category as string)}
+                    </Text>
+                  </View>
+                </View>
+
+                {restaurant.description && (
+                  <View className={photoDetails.categoryDescriptionContainer}>
+                    <Text className={photoDetails.categoryDescriptionText}>
+                      {restaurant.description}
+                    </Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  className={photoDetails.locationContainer}
+                  onPress={getLocationCoordinates}
+                >
+                  <Ionicons name="location" size={20} color="#6B7280" />
+                  <Text className={photoDetails.locationText}>
+                    {restaurant.location || "Location not specified"}
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color="#6B7280"
+                    className={photoDetails.locationArrow}
+                  />
+                </TouchableOpacity>
+
+                {restaurant.contact?.phone && (
+                  <View className={photoDetails.infoSection}>
+                    <Text className={photoDetails.sectionTitle}>Phone</Text>
+                    <Text className={photoDetails.sectionText}>
+                      {restaurant.contact.phone}
+                    </Text>
+                  </View>
+                )}
+
+                {restaurant.contact?.website && (
+                  <View className={photoDetails.infoSection}>
+                    <Text className={photoDetails.sectionTitle}>Website</Text>
+                    <TouchableOpacity
+                      onPress={() =>
+                        Linking.openURL(restaurant.contact?.website as string)
+                      }
+                    >
+                      <Text
+                        className={`${photoDetails.sectionText} ${photoDetails.linkText}`}
+                      >
+                        {restaurant.contact?.website}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {restaurant.operatingHours && (
+                  <View className={photoDetails.infoSection}>
+                    <Text className={photoDetails.sectionTitle}>
+                      Opening Hours
+                    </Text>
+                    {Object.entries(restaurant.operatingHours).map(
+                      ([day, hours]) => (
+                        <View
+                          key={day}
+                          className="flex-row justify-between py-0.5"
+                        >
+                          <Text className="w-1/2 text-gray-700 capitalize">
+                            {day}
+                          </Text>
+                          <Text className="w-1/2 text-right text-gray-800">{`${hours.open} - ${hours.close}`}</Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                )}
+
+                {restaurant.features && (
+                  <View className={photoDetails.infoSection}>
+                    <Text className={photoDetails.sectionTitle}>Features</Text>
+                    <View className={photoDetails.featuresContainer}>
+                      {restaurant.features.map(
+                        (feature: string, index: number) => (
+                          <View
+                            key={index}
+                            className={photoDetails.featureItem}
+                          >
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={16}
+                              color="#10B981"
+                            />
+                            <Text className={photoDetails.featureText}>
+                              {feature}
+                            </Text>
+                          </View>
+                        )
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+
+            <View className={photoDetails.actionsContainer}>
               <TouchableOpacity
-                className={photoDetails.closeButton}
-                onPress={() => setShowMap(false)}
+                className={photoDetails.actionButton}
+                onPress={() => setShowComments(true)}
               >
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Ionicons name="chatbubble-outline" size={24} color="#6B7280" />
+                <Text className={photoDetails.actionText}>
+                  {commentsByRestaurant.length}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity className={photoDetails.actionButton}>
+                <Ionicons name="heart-outline" size={24} color="#6B7280" />
+                <Text className={photoDetails.actionText}>Like</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={photoDetails.actionButton}
+                onPress={handleShare}
+              >
+                <Ionicons name="share-outline" size={24} color="#6B7280" />
+                <Text className={photoDetails.actionText}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={photoDetails.actionButton}
+                onPress={() => setShowCamera(true)}
+              >
+                <Ionicons name="camera-outline" size={24} color="#6B7280" />
+                <Text className={photoDetails.actionText}>Camera</Text>
               </TouchableOpacity>
             </View>
-            {coordinates && (
-              <View className={photoDetails.mapContainer}>
-                <MapView
-                  className={photoDetails.map}
-                  initialRegion={{
-                    latitude: coordinates.latitude,
-                    longitude: coordinates.longitude,
-                    latitudeDelta: 0.0922,
-                    longitudeDelta: 0.0421,
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  <Marker
-                    coordinate={{
-                      latitude: coordinates.latitude,
-                      longitude: coordinates.longitude,
-                    }}
-                    title={restaurant.location as string}
-                  />
-                </MapView>
-                <TouchableOpacity
-                  className={photoDetails.openMapsButton}
-                  onPress={openLocationInMaps}
-                >
-                  <Ionicons name="navigate" size={20} color="#ffffff" />
-                  <Text className={photoDetails.openMapsText}>
-                    Open in Maps
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
-        </View>
-      </Modal>
-
-      <CommentModal
-        visible={showComments}
-        onClose={() => setShowComments(false)}
-        listComments={commentsByRestaurant}
-        restaurantId={params.id as string}
-        setComments={commentSetter}
-      />
-
-      <Modal
-        visible={showFullImage}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFullImage(false)}
-      >
-        <SafeAreaView className="flex-1 bg-black">
-          <View className="flex-row justify-between items-center px-4 py-2">
-            <TouchableOpacity
-              className="p-2"
-              onPress={() => setShowFullImage(false)}
-            >
-              <Ionicons name="close" size={30} color="#ffffff" />
-            </TouchableOpacity>
-            <Text className="text-white text-lg font-semibold">
-              {modalImageIndex + 1} / {imageArray.length}
-            </Text>
-          </View>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={handleModalScroll}
-            scrollEventThrottle={16}
-            className="flex-1"
-            contentContainerStyle={{ width: `${100 * imageArray.length}%` }}
-            decelerationRate="fast"
-            snapToInterval={Dimensions.get("window").width}
-            snapToAlignment="center"
+          <Modal
+            visible={showMap}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowMap(false)}
           >
-            {imageArray.map((img: string, index: number) => (
-              <View
-                key={index}
-                className="w-full h-full"
-                style={{
-                  width: Dimensions.get("window").width,
-                  height: "100%",
-                }}
-              >
-                <Image
-                  source={{ uri: img }}
-                  className={photoDetails.fullImage}
-                  resizeMode="contain"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    flex: 1,
-                  }}
-                />
+            <View className={photoDetails.modalOverlay}>
+              <View className={photoDetails.modalContent}>
+                <View className={photoDetails.modalHeader}>
+                  <Text className={photoDetails.modalTitle}>
+                    {restaurant.location || "Location"}
+                  </Text>
+                  <TouchableOpacity
+                    className={photoDetails.closeButton}
+                    onPress={() => setShowMap(false)}
+                  >
+                    <Ionicons name="close" size={24} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+                {coordinates && (
+                  <View className={photoDetails.mapContainer}>
+                    <MapView
+                      className={photoDetails.map}
+                      initialRegion={{
+                        latitude: coordinates.latitude,
+                        longitude: coordinates.longitude,
+                        latitudeDelta: 0.0922,
+                        longitudeDelta: 0.0421,
+                      }}
+                      style={{ flex: 1 }}
+                    >
+                      <Marker
+                        coordinate={{
+                          latitude: coordinates.latitude,
+                          longitude: coordinates.longitude,
+                        }}
+                        title={restaurant.location as string}
+                      />
+                    </MapView>
+                    <TouchableOpacity
+                      className={photoDetails.openMapsButton}
+                      onPress={openLocationInMaps}
+                    >
+                      <Ionicons name="navigate" size={20} color="#ffffff" />
+                      <Text className={photoDetails.openMapsText}>
+                        Open in Maps
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal
-        visible={showCamera}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowCamera(false)}
-      >
-        <View className="flex-1 bg-black">
-          <SafeAreaView className="flex-1">
-            <View className="flex-1">
-              <CameraComponent
-                onPhotoTaken={handlePhotoTaken}
-                showPreview={false}
-                onClose={() => setShowCamera(false)}
-              />
             </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
+          </Modal>
+          <CommentModal
+            visible={showComments}
+            onClose={() => setShowComments(false)}
+            listComments={commentsByRestaurant}
+            restaurantId={params.id as string}
+            setComments={commentSetter}
+          />
+          <Modal
+            visible={showFullImage}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowFullImage(false)}
+          >
+            <SafeAreaView className="flex-1 bg-black">
+              <View className="flex-row justify-between items-center px-4 py-2">
+                <TouchableOpacity
+                  className="p-2"
+                  onPress={() => setShowFullImage(false)}
+                >
+                  <Ionicons name="close" size={30} color="#ffffff" />
+                </TouchableOpacity>
+                <Text className="text-white text-lg font-semibold">
+                  {modalImageIndex + 1} / {imageArray.length}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={handleModalScroll}
+                scrollEventThrottle={16}
+                className="flex-1"
+                contentContainerStyle={{ width: `${100 * imageArray.length}%` }}
+                decelerationRate="fast"
+                snapToInterval={Dimensions.get("window").width}
+                snapToAlignment="center"
+              >
+                {imageArray.map((img: string, index: number) => (
+                  <View
+                    key={index}
+                    className="w-full h-full"
+                    style={{
+                      width: Dimensions.get("window").width,
+                      height: "100%",
+                    }}
+                  >
+                    <Image
+                      source={{ uri: img }}
+                      className={photoDetails.fullImage}
+                      resizeMode="contain"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        flex: 1,
+                      }}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </SafeAreaView>
+          </Modal>
+          <Modal
+            visible={showCamera}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowCamera(false)}
+          >
+            <View className="flex-1 bg-black">
+              <SafeAreaView className="flex-1">
+                <View className="flex-1">
+                  <CameraComponent
+                    onPhotoTaken={handlePhotoTaken}
+                    showPreview={false}
+                    onClose={() => setShowCamera(false)}
+                  />
+                </View>
+              </SafeAreaView>
+            </View>
+          </Modal>
+        </>
+      )}
     </SafeAreaView>
   );
 }

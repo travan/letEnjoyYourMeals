@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,13 +8,18 @@ import {
   Modal,
   SafeAreaView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import * as mime from "react-native-mime-types";
+
 import CameraComponent from "./components/CameraComponent";
 import { takePhotosStyles } from "./styles/takePhotos";
 import { categories } from "@shared/data/constants/categories";
+import { useUploadImageStore } from "./store/uploadImageStore";
+import { Restaurant } from "@shared/data";
 
 export default function TakePhotos() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -29,13 +34,24 @@ export default function TakePhotos() {
   const [price, setPrice] = useState("$$");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+
+  const { uploadImage, uploading } = useUploadImageStore();
+
+  useEffect(() => {
+    console.log(uploading);
+    if (uploading) {
+      setShowLoading(true);
+    } else if (showLoading && !uploading) {
+      setShowLoading(false);
+      router.back();
+    }
+  }, [uploading]);
 
   const getLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        return;
-      }
+      if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
@@ -57,8 +73,6 @@ export default function TakePhotos() {
       }
     } catch (error) {
       console.error("Error getting location:", error);
-      setLocation(null);
-      setCoordinates(null);
     }
   };
 
@@ -68,34 +82,47 @@ export default function TakePhotos() {
   };
 
   const handleShare = () => {
-    if (photoUri) {
-      setShowFormModal(true);
+    if (photoUri) setShowFormModal(true);
+  };
+
+  const handleFormSubmit = async () => {
+    if (!photoUri || uploading) return;
+    try {
+      const uri = photoUri;
+      const type = mime.lookup(uri) || "image/jpeg"; // ví dụ: image/jpeg
+      const name = uri.split("/").pop() || "photo.jpg";
+
+      const file = {
+        uri,
+        type,
+        name,
+      };
+
+      const restaurantData: Restaurant = {
+        name: restaurantName,
+        rating: parseInt(rating),
+        description,
+        price,
+        category: selectedCategory,
+        location: location || "",
+        coordinates: coordinates || { latitude: 0, longitude: 0 },
+        image: [],
+        id: Date.now().toString(),
+        time: "",
+      };
+
+      await uploadImage(file, null, restaurantData);
+    } catch (error) {
+      console.error("Failed to upload and save restaurant:", error);
     }
   };
 
-  const handleFormSubmit = () => {
-    if (photoUri) {
-      // Create a new photo object with all the form data
-      const photoData = {
-        photoUri: photoUri.toString(),
-        location: location || "",
-        latitude: coordinates?.latitude?.toString() || "",
-        longitude: coordinates?.longitude?.toString() || "",
-        timestamp: new Date().getTime().toString(),
-        action: "addPhoto",
-        name: restaurantName,
-        rating: rating,
-        description: description,
-        price: price,
-        category: selectedCategory,
-      };
-      // Navigate to the main screen with the photo data
-      router.replace({
-        pathname: "/",
-        params: photoData,
-      });
-    }
-  };
+  const renderLoadingScreen = () => (
+    <View className="absolute inset-0 z-50 bg-black bg-opacity-60 justify-center items-center">
+      <ActivityIndicator size="large" color="#ffffff" />
+      <Text className="text-white mt-4 text-lg">Uploading...</Text>
+    </View>
+  );
 
   const renderFormModal = () => (
     <Modal
@@ -235,7 +262,10 @@ export default function TakePhotos() {
   return (
     <SafeAreaView className={takePhotosStyles.container}>
       {!photoUri ? (
-        <CameraComponent onPhotoTaken={handlePhotoTaken} onClose={() => router.back()} />
+        <CameraComponent
+          onPhotoTaken={handlePhotoTaken}
+          onClose={() => router.back()}
+        />
       ) : (
         <View className={takePhotosStyles.previewContainer}>
           <View className="flex-1 bg-black">
@@ -263,7 +293,7 @@ export default function TakePhotos() {
           </View>
         </View>
       )}
-      {renderFormModal()}
+      {showLoading ? renderLoadingScreen() : renderFormModal()}
     </SafeAreaView>
   );
 }
